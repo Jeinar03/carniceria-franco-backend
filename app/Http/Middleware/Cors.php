@@ -8,20 +8,28 @@ use Illuminate\Http\Request;
 class Cors
 {
     /**
-     * Handle an incoming request.
+     * Cabeceras CORS para las rutas del grupo 'cors' (ver routes/api.php).
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse)  $next
-     * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
+     * El origen permitido sale de config/cors.php (que lee FRONTEND_URL del .env).
+     * Si no hay lista (entorno local), se permite cualquier origen ('*').
+     * En producción: FRONTEND_URL=https://tienda.carniceriafrancoadmin.shop
      */
     public function handle($request, Closure $next)
     {
+        $allowed = (array) config('cors.allowed_origins', ['*']);
+        $origin = $request->headers->get('Origin');
+
+        if (in_array('*', $allowed, true)) {
+            $allowOrigin = '*';
+        } elseif ($origin && in_array($origin, $allowed, true)) {
+            $allowOrigin = $origin;
+        } else {
+            $allowOrigin = $allowed[0] ?? '*';
+        }
+
         return $next($request)
-        //Url a la que se le dará acceso en las peticiones
-        ->header("Access-Control-Allow-Origin", "*")
-        //Métodos que a los que se da acceso
-        ->header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
-        //Headers de la petición
-        ->header("Access-Control-Allow-Headers", "X-Requested-With, Content-Type, X-Token-Auth, Authorization");
+            ->header('Access-Control-Allow-Origin', $allowOrigin)
+            ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+            ->header('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, X-Token-Auth, Authorization');
     }
 }

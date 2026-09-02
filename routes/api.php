@@ -22,8 +22,14 @@ use Illuminate\Support\Facades\Route;
 |
 */
 Route::options('/{any}', function () {
+    $allowed = (array) config('cors.allowed_origins', ['*']);
+    $origin = request()->headers->get('Origin');
+    $allowOrigin = in_array('*', $allowed, true)
+        ? '*'
+        : (($origin && in_array($origin, $allowed, true)) ? $origin : ($allowed[0] ?? '*'));
+
     return response()->json([], 200, [
-        'Access-Control-Allow-Origin'  => '*', // Cambia '*' por tu dominio en producción
+        'Access-Control-Allow-Origin'  => $allowOrigin,
         'Access-Control-Allow-Methods' => 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
         'Access-Control-Allow-Headers' => 'X-Requested-With, Content-Type, X-Token-Auth, Authorization',
     ]);
