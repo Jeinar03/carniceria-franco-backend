@@ -7,7 +7,6 @@ use App\Http\Livewire\Categorias\CategoriasController;
 use App\Http\Livewire\Clientes\ClientesController;
 use App\Http\Livewire\Dash;
 use App\Http\Livewire\Despachos\DespachosController;
-use App\Http\Livewire\Equipo\EquipoController;
 use App\Http\Livewire\Logs\LogsController;
 use App\Http\Livewire\Notificaciones\NotificacionesController;
 use App\Http\Livewire\PermisosController;
@@ -60,7 +59,6 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::get('logs', LogsController::class);
-    Route::get('equipo', EquipoController::class);
 
     Route::get('admin/inventario/entradas/{date}/pdf', [InventoryReceiptController::class, 'entriesByDate'])
         ->where('date', '\\d{4}-\\d{2}-\\d{2}')
