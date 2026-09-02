@@ -1,29 +1,27 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 
+/**
+ * NEUTRALIZADA 2026-09-02.
+ *
+ * Las columnas mercadopago_payment_id / mercadopago_status ahora se crean
+ * directamente en create_sales_table (2021_04_24_051547). Esta migración original
+ * hacía ->after('metodo_pago') sobre una tabla POS que no tenía esa columna, y
+ * rompía `php artisan migrate`.
+ *
+ * Se deja el archivo (no se borra) para conservar el registro en la tabla
+ * `migrations` de entornos donde ya se haya ejecutado.
+ */
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('sales', function (Blueprint $table) {
-            $table->string('mercadopago_payment_id')->nullable()->after('metodo_pago');
-            $table->string('mercadopago_status')->nullable()->after('mercadopago_payment_id');
-        });
+        // no-op: columnas ya presentes en create_sales_table
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::table('sales', function (Blueprint $table) {
-            $table->dropColumn(['mercadopago_payment_id', 'mercadopago_status']);
-        });
+        // no-op
     }
 };

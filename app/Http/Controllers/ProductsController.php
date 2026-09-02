@@ -181,7 +181,7 @@ class ProductsController extends Controller
             $products = Product::with('category')
                 ->withInventoryStock()
                 ->active()
-                ->search($request->query)
+                ->search($request->input('query'))
                 ->conStock()
                 ->limit(20)
                 ->get();

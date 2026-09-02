@@ -2,23 +2,23 @@
 
 namespace Database\Seeders;
 
-use App\Models\Sale;
-use App\Models\Product;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Seed the application's database.
-     *
-     * @return void
+     * Orden: usuarios/roles primero, luego catálogo (categorías → productos +
+     * inventario inicial), luego clientes. Actualizado 2026-09-02.
      */
     public function run()
     {
-
-        $this->call(DenominationSeeder::class);
-        $this->call(CategorySeeder::class);
-        $this->call(ProductSeeder::class);
-        $this->call(UserSeeder::class);
+        $this->call([
+            DenominationSeeder::class,
+            UserSeeder::class,
+            CategorySeeder::class,
+            ProductSeeder::class,
+            CustomerSeeder::class,
+            SiteConfigSeeder::class,
+        ]);
     }
 }
