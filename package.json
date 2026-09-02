@@ -1,0 +1,30 @@
+{
+    "private": true,
+    "scripts": {
+        "dev": "npm run development",
+        "development": "set NODE_OPTIONS=--openssl-legacy-provider && mix",
+        "watch": "set NODE_OPTIONS=--openssl-legacy-provider && mix watch",
+        "watch-poll": "set NODE_OPTIONS=--openssl-legacy-provider && mix watch -- --watch-options-poll=1000",
+        "hot": "set NODE_OPTIONS=--openssl-legacy-provider && mix watch --hot",
+        "prod": "npm run production",
+        "production": "set NODE_OPTIONS=--openssl-legacy-provider && mix --production"
+    },
+    "devDependencies": {
+        "axios": "^1.6.7",
+        "bootstrap": "^5.3.3",
+        "jquery": "^3.2",
+        "laravel-mix": "^6.0.6",
+        "lodash": "^4.17.19",
+        "popper.js": "^1.12",
+        "postcss": "^8.5.14",
+        "resolve-url-loader": "^3.1.2",
+        "sass": "^1.15.2",
+        "sass-loader": "^8.0.0"
+    },
+    "dependencies": {
+        "@fontsource/quicksand": "^5.2.10",
+        "datatables.net-bs4": "^2.3.7",
+        "datatables.net-responsive-bs4": "^3.0.8",
+        "toast.js": "^0.0.4"
+    }
+}

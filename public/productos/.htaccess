@@ -1,0 +1,8 @@
+# Permitir acceso a las imágenes de productos
+<Files ~ "\.(jpg|jpeg|png|gif|webp|bmp|svg)$">
+    <IfModule mod_rewrite.c>
+        RewriteEngine off
+    </IfModule>
+    Order allow,deny
+    Allow from all
+</Files>

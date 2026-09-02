@@ -1,0 +1,149 @@
+/* Header personalizado */
+
+.header-container {
+  background: #f8f9fa;
+  border-bottom: 1px solid #e3e6f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.header .header-logo {
+  height: 40px;
+  width: auto;
+}
+
+.header .company-text {
+  font-size: 1.05rem;
+  color: #6c757d;
+  font-weight: 500;
+  letter-spacing: 0.25px;
+}
+
+.header .sidebarCollapse {
+  cursor: pointer;
+  color: #3b3f5c;
+  transition: color 0.2s ease;
+}
+
+.header .sidebarCollapse:hover {
+  color: #1f2937;
+}
+
+.header .user-profile-header img.img-fluid {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+}
+
+.header .avatar-fallback {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e9ecef;
+  color: #6b7280;
+  border: 1px solid #dee2e6;
+}
+
+.header .user-name {
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.header .user-role {
+  font-size: 0.9rem;
+  line-height: 1.1;
+}
+
+.header .twofa-badge {
+  margin-left: 6px;
+  color: #2ecc71;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.header .btn-logout-tpp {
+  min-width: 122px;
+  justify-content: center;
+}
+
+.header .zero-stock-trigger {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 18px;
+  white-space: nowrap;
+}
+
+.header .zero-stock-dropdown-menu {
+  width: 360px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  box-shadow: 0 12px 34px rgba(31, 41, 55, 0.2);
+}
+
+.header .zero-stock-dropdown-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 15px;
+  border-bottom: 1px solid #e9ecef;
+  background: #fff;
+}
+
+.header .zero-stock-scroll {
+  max-height: 330px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.header .zero-stock-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f0f1f4;
+  white-space: normal;
+}
+
+.header .zero-stock-item:hover { background: #fff5f5; }
+.header .zero-stock-icon { color: #e7515a; width: 25px; text-align: center; }
+.header .zero-stock-info { display: flex; flex: 1; min-width: 0; flex-direction: column; }
+.header .zero-stock-info strong { overflow: hidden; color: #343a56; font-size: .84rem; text-overflow: ellipsis; white-space: nowrap; }
+.header .zero-stock-info small { color: #7c8497; font-size: .72rem; }
+.header .zero-stock-empty { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 28px 14px; color: #697086; }
+.header .zero-stock-footer { display: block; padding: 9px 14px; color: #343a56; background: #f5f6f8; font-size: .78rem; font-weight: 700; text-align: center; }
+
+@media (max-width: 991.98px) {
+  .header .company-text {
+    display: none !important;
+  }
+
+  .header .btn-logout-tpp {
+    min-width: auto;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .header .btn-logout-text {
+    display: none;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .header .zero-stock-label { display: none; }
+  .header .zero-stock-header { margin-right: .5rem !important; }
+  .header .zero-stock-dropdown-menu { width: min(340px, calc(100vw - 20px)); }
+  .header .user-role {
+    display: none;
+  }
+
+  .header .user-name {
+    font-size: 0.9rem;
+  }
+
+  .header .user-profile-header {
+    margin-left: 0.5rem;
+  }
+}

@@ -1,0 +1,183 @@
+/* Sidebar palette */
+:root {
+    --sb-accent: #D9BA82;
+    --sb-accent-2: #D9B384;
+    --sb-accent-soft: #D9C5AD;
+    --sb-ink: #59514F;
+    --sb-surface: #F2F2F2;
+    --sb-white: #ffffff;
+}
+
+/* Sidebar general */
+.container1 .cf-sidebar-shell,
+.container1 .cf-sidebar-shell #compactSidebar,
+.container1 .cf-sidebar-shell #compact_submenuSidebar {
+    background: var(--sb-surface);
+    box-shadow: none;
+}
+
+.container1 .cf-sidebar-shell {
+    border-right: 1px solid var(--sb-accent-soft);
+}
+
+.container1 .cf-sidebar-shell #compactSidebar {
+    border-right: 1px solid var(--sb-accent-soft);
+}
+
+/* Modulos principales */
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories > li.menu {
+    margin: 6px 8px;
+    border-radius: 10px;
+}
+
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories > li.menu > a.menu-toggle {
+    height: 98px;
+    padding: 10px 8px;
+    border-radius: 10px;
+    color: var(--sb-ink);
+    text-decoration: none;
+}
+
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories > li.menu > a.menu-toggle:hover,
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories > li.menu.active > a.menu-toggle {
+    background: linear-gradient(135deg, var(--sb-accent) 0%, var(--sb-accent-2) 100%) !important;
+    border: 1px solid var(--sb-accent-2);
+}
+
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories > li.menu > a.menu-toggle:hover .sidebar-module-name-small,
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories > li.menu.active > a.menu-toggle .sidebar-module-name-small {
+    color: var(--sb-ink);
+    font-weight: 700;
+}
+
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories > li.menu > a.menu-toggle:hover .base-icons,
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories > li.menu.active > a.menu-toggle .base-icons {
+    color: var(--sb-ink);
+}
+
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories > li.menu > a.menu-toggle:hover .base-icons svg,
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories > li.menu.active > a.menu-toggle .base-icons svg {
+    stroke: var(--sb-ink);
+    opacity: 1;
+}
+
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories > li.menu > .feather-chevron-left {
+    color: var(--sb-ink);
+    width: 18px;
+    height: 18px;
+}
+
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories .base-menu {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories .base-icons {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    color: var(--sb-ink);
+}
+
+.container1 .cf-sidebar-shell #compactSidebar .menu-categories .base-icons svg {
+    width: 20px;
+    height: 20px;
+    opacity: .9;
+}
+
+.sidebar-module-name-small {
+    display: block;
+    font-size: 12px;
+    line-height: 1.1;
+    text-align: center;
+    color: var(--sb-ink);
+    max-width: 110px;
+    white-space: normal;
+    word-break: break-word;
+}
+
+/* Submenu */
+.container1 .cf-sidebar-shell #compact_submenuSidebar {
+    border-left: 1px solid var(--sb-accent-soft);
+    padding: 12px;
+}
+
+.container1 .cf-sidebar-shell #compact_submenuSidebar .submenu-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.container1 .cf-sidebar-shell #compact_submenuSidebar .submenu-list li {
+    margin-bottom: 6px;
+}
+
+.container1 .cf-sidebar-shell #compact_submenuSidebar .submenu-list li > a.menu-toggle {
+    display: block;
+    border-radius: 8px;
+    border: 1px solid var(--sb-accent-soft);
+    background: var(--sb-white);
+    color: var(--sb-ink);
+    padding: 10px 12px;
+    text-decoration: none;
+    transition: background-color .15s ease, border-color .15s ease;
+}
+
+.container1 .cf-sidebar-shell #compact_submenuSidebar .submenu-list li > a.menu-toggle:hover,
+.container1 .cf-sidebar-shell #compact_submenuSidebar .submenu-list li.active > a.menu-toggle {
+    background: var(--sb-accent-soft);
+    border-color: var(--sb-accent-2);
+}
+
+.container1 .cf-sidebar-shell #compact_submenuSidebar .submenu-list .base-menu {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.container1 .cf-sidebar-shell #compact_submenuSidebar .submenu-list .base-icons {
+    width: 28px;
+    height: 28px;
+    margin-right: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--sb-ink);
+    flex-shrink: 0;
+}
+
+.container1 .cf-sidebar-shell #compact_submenuSidebar .submenu-list .base-icons svg {
+    width: 20px;
+    height: 20px;
+}
+
+.container1 .cf-sidebar-shell #compact_submenuSidebar .submenu-list span {
+    display: block;
+    font-size: 14px;
+    color: var(--sb-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 991px) {
+    .container1 .cf-sidebar-shell #compactSidebar .menu-categories > li.menu > a.menu-toggle {
+        height: 92px;
+    }
+
+    .sidebar-module-name-small {
+        font-size: 11px;
+        max-width: 90px;
+    }
+
+    .container1 .cf-sidebar-shell #compact_submenuSidebar {
+        width: calc(100vw - 120px);
+        max-width: 260px;
+    }
+}
