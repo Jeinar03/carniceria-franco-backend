@@ -136,10 +136,10 @@ class SalesController extends Controller
                 ];
             }
 
-            // Calcular descuento e impuestos
+            // Carne fresca sin procesar: IVA tasa 0% (art. 2-A LIVA). No se cobra impuesto.
             $descuento = $request->descuento ?? 0;
-            $impuestos = ($subtotal - $descuento) * 0.16; // 16% IVA
-            $total = $subtotal - $descuento + $impuestos;
+            $impuestos = 0;
+            $total = $subtotal - $descuento;
 
             // Crear la venta
             $saleData = [

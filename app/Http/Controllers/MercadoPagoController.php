@@ -216,9 +216,10 @@ class MercadoPagoController extends Controller
 
             Log::info("📊 Total items: " . count($items) . ", Subtotal: \${$subtotal}");
 
+            // Carne fresca sin procesar: IVA tasa 0% (art. 2-A LIVA). No se cobra impuesto.
             $descuento = floatval($request->descuento ?? 0);
-            $impuestos = ($subtotal - $descuento) * 0.16;
-            $total     = $subtotal - $descuento + $impuestos;
+            $impuestos = 0;
+            $total     = $subtotal - $descuento;
 
             Log::info("💳 Creando venta pendiente - Total: \${$total}");
 

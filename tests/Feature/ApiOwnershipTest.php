@@ -121,4 +121,28 @@ class ApiOwnershipTest extends TestCase
         $this->assertDatabaseHas('sales', ['customer_id' => $a->id]);
         $this->assertDatabaseMissing('sales', ['customer_id' => $b->id]);
     }
+
+    public function test_la_venta_no_cobra_iva(): void
+    {
+        $a = $this->cliente('a@test.com');
+        $producto = DB::table('products')->first();
+
+        Sanctum::actingAs($a, ['cliente']);
+
+        $res = $this->postJson('/api/v1/ventas', [
+            'metodo_pago' => 'efectivo',
+            'productos' => [
+                ['product_id' => $producto->id, 'cantidad' => 2],
+            ],
+        ]);
+
+        $res->assertStatus(201);
+
+        $venta = DB::table('sales')->latest('id')->first();
+        $esperado = round($producto->precio * 2, 2);
+
+        $this->assertEquals(0, (float) $venta->impuestos, 'La venta no debe llevar IVA');
+        $this->assertEquals($esperado, (float) $venta->subtotal);
+        $this->assertEquals($esperado, (float) $venta->total, 'El total = subtotal (sin impuestos)');
+    }
 }

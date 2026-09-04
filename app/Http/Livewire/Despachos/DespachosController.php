@@ -223,8 +223,9 @@ class DespachosController extends Component
                     $descuento = $subtotal;
                 }
 
-                $impuestos = ($subtotal - $descuento) * 0.16;
-                $total = $subtotal - $descuento + $impuestos;
+                // Carne fresca sin procesar: IVA tasa 0% (art. 2-A LIVA).
+                $impuestos = 0;
+                $total = $subtotal - $descuento;
 
                 $sale = Sale::create([
                     'customer_id' => $this->createCustomerId,
@@ -319,16 +320,14 @@ class DespachosController extends Component
 
     public function getCartTaxesProperty()
     {
-        $discount = max(0, (float) ($this->createDescuento ?? 0));
-        $base = max(0, $this->cartSubtotal - $discount);
-
-        return $base * 0.16;
+        // Carne fresca sin procesar: IVA tasa 0% (art. 2-A LIVA).
+        return 0;
     }
 
     public function getCartTotalProperty()
     {
         $discount = max(0, (float) ($this->createDescuento ?? 0));
-        return max(0, $this->cartSubtotal - $discount) + $this->cartTaxes;
+        return max(0, $this->cartSubtotal - $discount);
     }
 
     private function resetCreateOrderForm()

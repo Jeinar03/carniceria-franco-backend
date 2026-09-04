@@ -141,7 +141,9 @@
                             <div class="card-body py-3 px-3">
                                 <div class="d-flex justify-content-between mb-2"><span>Subtotal</span><strong>${{ number_format($sale->subtotal, 2) }}</strong></div>
                                 <div class="d-flex justify-content-between mb-2"><span>Descuento</span><strong class="text-danger">-${{ number_format($sale->descuento, 2) }}</strong></div>
-                                <div class="d-flex justify-content-between mb-2"><span>Impuestos (IVA 16%)</span><strong>${{ number_format($sale->impuestos, 2) }}</strong></div>
+                                @if ($sale->impuestos > 0)
+                                    <div class="d-flex justify-content-between mb-2"><span>Impuestos</span><strong>${{ number_format($sale->impuestos, 2) }}</strong></div>
+                                @endif
                                 <hr class="my-2">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span class="font-weight-bold">TOTAL</span>

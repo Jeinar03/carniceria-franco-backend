@@ -191,10 +191,6 @@
                                     <span>Descuento:</span>
                                     <strong>-${{ number_format(max(0, (float)$createDescuento), 2) }}</strong>
                                 </div>
-                                <div class="d-flex justify-content-between">
-                                    <span>Impuestos (16%):</span>
-                                    <strong>${{ number_format($this->cartTaxes, 2) }}</strong>
-                                </div>
                                 <hr>
                                 <div class="d-flex justify-content-between">
                                     <span>Total final:</span>
