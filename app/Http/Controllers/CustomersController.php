@@ -2,9 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Ejercicios;
-use App\Models\RespuestaOpcion;
-use App\Models\Rutinas;
 use App\Models\SeguimientoClientesImagenes;
 use Illuminate\Http\Request;
 use App\Models\Customers;
