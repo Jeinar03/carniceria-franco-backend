@@ -14,6 +14,9 @@ class IndicadoresApiController extends Controller
 {
     public function preguntasPedido(Request $request, int $saleId): JsonResponse
     {
+        // El cuestionario siempre es del cliente autenticado.
+        $request->merge(['customer_id' => $request->user()->id]);
+
         $validator = Validator::make($request->all(), [
             'customer_id' => 'required|exists:customers,id',
         ]);
@@ -90,6 +93,9 @@ class IndicadoresApiController extends Controller
 
     public function guardarRespuestas(Request $request, int $saleId): JsonResponse
     {
+        // El cuestionario siempre es del cliente autenticado.
+        $request->merge(['customer_id' => $request->user()->id]);
+
         $validator = Validator::make($request->all(), [
             'customer_id' => 'required|exists:customers,id',
             'respuestas' => 'required|array|min:1',

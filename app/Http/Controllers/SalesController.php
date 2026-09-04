@@ -25,10 +25,39 @@ class SalesController extends Controller
     }
 
     /**
+     * Respuesta 403 estándar cuando un cliente intenta acceder a algo ajeno.
+     */
+    private function noAutorizado()
+    {
+        return response()->json([
+            'success' => false,
+            'status' => 403,
+            'message' => 'No autorizado',
+            'data' => null
+        ], 403);
+    }
+
+    /**
+     * True si la petición viene de un cliente (token Sanctum) que NO es dueño
+     * del customer_id dado. Los usuarios del panel (User) pasan sin restricción.
+     */
+    private function clienteNoEsDueno(Request $request, $customerId): bool
+    {
+        $user = $request->user();
+
+        return $user instanceof Customers
+            && (int) $customerId !== (int) $user->id;
+    }
+
+    /**
      * Crear una nueva venta (compra del cliente)
      */
     public function store(Request $request)
     {
+        // La venta siempre se registra a nombre del cliente autenticado.
+        // Se ignora cualquier customer_id que venga en el body.
+        $request->merge(['customer_id' => $request->user()->id]);
+
         $validator = Validator::make($request->all(), [
             'customer_id' => 'required|exists:customers,id',
             'metodo_pago' => 'required|in:efectivo,tarjeta,transferencia,credito,mercado_pago',
@@ -209,8 +238,12 @@ class SalesController extends Controller
     /**
      * Obtener historial de compras del cliente
      */
-    public function getCustomerPurchases($customerId)
+    public function getCustomerPurchases(Request $request, $customerId)
     {
+        if ($this->clienteNoEsDueno($request, $customerId)) {
+            return $this->noAutorizado();
+        }
+
         try {
             $customer = Customers::find($customerId);
 
@@ -251,7 +284,7 @@ class SalesController extends Controller
     /**
      * Obtener detalle de una compra específica
      */
-    public function getPurchaseDetail($saleId)
+    public function getPurchaseDetail(Request $request, $saleId)
     {
         try {
             $sale = Sale::with(['details.product', 'customer'])
@@ -264,6 +297,10 @@ class SalesController extends Controller
                     'message' => 'Compra no encontrada',
                     'data' => null
                 ], 404);
+            }
+
+            if ($this->clienteNoEsDueno($request, $sale->customer_id)) {
+                return $this->noAutorizado();
             }
 
             return response()->json([
@@ -286,8 +323,12 @@ class SalesController extends Controller
     /**
      * Obtener estadísticas de compras del cliente
      */
-    public function getCustomerStats($customerId)
+    public function getCustomerStats(Request $request, $customerId)
     {
+        if ($this->clienteNoEsDueno($request, $customerId)) {
+            return $this->noAutorizado();
+        }
+
         try {
             $customer = Customers::find($customerId);
 
@@ -338,8 +379,12 @@ class SalesController extends Controller
     /**
      * Obtener últimas compras del cliente (más recientes)
      */
-    public function getRecentPurchases($customerId, $limit = 5)
+    public function getRecentPurchases(Request $request, $customerId, $limit = 5)
     {
+        if ($this->clienteNoEsDueno($request, $customerId)) {
+            return $this->noAutorizado();
+        }
+
         try {
             $purchases = Sale::with(['details.product'])
                 ->where('customer_id', $customerId)
@@ -367,7 +412,7 @@ class SalesController extends Controller
     /**
      * Cancelar una compra
      */
-    public function cancelPurchase($saleId)
+    public function cancelPurchase(Request $request, $saleId)
     {
         DB::beginTransaction();
 
@@ -382,6 +427,11 @@ class SalesController extends Controller
                     'message' => 'Compra no encontrada',
                     'data' => null
                 ], 404);
+            }
+
+            if ($this->clienteNoEsDueno($request, $sale->customer_id)) {
+                DB::rollBack();
+                return $this->noAutorizado();
             }
 
             if ($sale->estatus == 'cancelada') {
@@ -453,53 +503,14 @@ class SalesController extends Controller
     }
 
     /**
-     * Obtener todas las ventas (para admin)
-     */
-    public function getAllSales(Request $request)
-    {
-        try {
-            $query = Sale::with(['customer', 'details']);
-
-            // Filtrar por estatus
-            if ($request->has('estatus')) {
-                $query->where('estatus', $request->estatus);
-            }
-
-            // Filtrar por rango de fechas
-            if ($request->has('fecha_inicio') && $request->has('fecha_fin')) {
-                $query->entreFechas($request->fecha_inicio, $request->fecha_fin);
-            }
-
-            // Filtrar por método de pago
-            if ($request->has('metodo_pago')) {
-                $query->porMetodoPago($request->metodo_pago);
-            }
-
-            $sales = $query->orderBy('fecha_venta', 'desc')
-                ->paginate($request->get('per_page', 20));
-
-            return response()->json([
-                'success' => true,
-                'status' => 200,
-                'message' => 'Ventas obtenidas correctamente',
-                'data' => $sales
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'status' => 500,
-                'message' => 'Error al obtener ventas: ' . $e->getMessage(),
-                'data' => null
-            ], 500);
-        }
-    }
-
-    /**
      * Obtener compras recomendadas para el cliente basadas en su historial
      */
-    public function getRecommendedPurchases($customerId)
+    public function getRecommendedPurchases(Request $request, $customerId)
     {
+        if ($this->clienteNoEsDueno($request, $customerId)) {
+            return $this->noAutorizado();
+        }
+
         try {
             $customer = Customers::find($customerId);
 
@@ -760,6 +771,10 @@ class SalesController extends Controller
                 ], 404);
             }
 
+            if ($this->clienteNoEsDueno($request, $sale->customer_id)) {
+                return $this->noAutorizado();
+            }
+
             if ($sale->metodo_pago !== 'transferencia') {
                 return response()->json([
                     'success' => false,
@@ -814,7 +829,7 @@ class SalesController extends Controller
     /**
      * Mostrar evidencia de transferencia almacenada en disco public.
      */
-    public function showTransferEvidence($saleId)
+    public function showTransferEvidence(Request $request, $saleId)
     {
         try {
             $sale = Sale::find($saleId);
@@ -826,6 +841,11 @@ class SalesController extends Controller
                     'message' => 'Venta no encontrada',
                     'data' => null
                 ], 404);
+            }
+
+            // El panel (User) puede ver cualquier evidencia; un cliente sólo la suya.
+            if ($this->clienteNoEsDueno($request, $sale->customer_id)) {
+                return $this->noAutorizado();
             }
 
             if ($sale->metodo_pago !== 'transferencia') {

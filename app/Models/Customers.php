@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
 class Customers extends Authenticatable
 {
-    use HasFactory;
+    use HasFactory, HasApiTokens;
     protected $table = 'customers';
     protected $fillable = [
         'nombre',
@@ -57,6 +58,7 @@ class Customers extends Authenticatable
 
     protected $hidden = [
         'password',
+        'remember_token',
     ];
 
     public function indicadorRespuestas()

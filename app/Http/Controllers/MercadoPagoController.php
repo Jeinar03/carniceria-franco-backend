@@ -69,6 +69,9 @@ class MercadoPagoController extends Controller
 
         $request->replace($payload);
 
+        // La preferencia y la venta pendiente siempre son del cliente autenticado.
+        $request->merge(['customer_id' => $request->user()->id]);
+
         Log::info('📦 Datos recibidos (normalizados):', $request->all());
 
         $validator = Validator::make($request->all(), [
@@ -484,8 +487,19 @@ class MercadoPagoController extends Controller
         }
     }
 
-    public function checkPaymentStatus($paymentId)
+    public function checkPaymentStatus(Request $request, $paymentId)
     {
+        // Si el pago está ligado a una venta, sólo su dueño puede consultarlo.
+        $venta = Sale::where('mercadopago_payment_id', $paymentId)->first();
+        if ($venta && (int) $venta->customer_id !== (int) $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'status'  => 403,
+                'message' => 'No autorizado',
+                'data'    => null,
+            ], 403);
+        }
+
         try {
             $payment = \MercadoPago\Payment::find_by_id($paymentId);
 
@@ -514,11 +528,13 @@ class MercadoPagoController extends Controller
         }
     }
 
-    public function getVentaByPreference($preferenceId)
+    public function getVentaByPreference(Request $request, $preferenceId)
     {
         try {
+            // Devuelve la última venta MP pendiente del cliente autenticado.
             $venta = Sale::where('estatus', 'pendiente')
                 ->where('metodo_pago', 'mercado_pago')
+                ->where('customer_id', $request->user()->id)
                 ->latest()
                 ->first();
 

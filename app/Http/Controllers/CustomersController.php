@@ -62,11 +62,18 @@ class CustomersController extends Controller
                 'descuento_preferencial' => $request->descuento_preferencial ?? 0,
                 'notas' => $request->notas,
             ]);
+
+            // Auto-login: emitir token Sanctum tras el registro
+            $token = $usuario->createToken('tienda', ['cliente'])->plainTextToken;
+
             return response()->json([
                 'success' => true,
                 'status' => 201,
                 'message' => 'Usuario creado correctamente',
-                'data' => $usuario
+                'data' => [
+                    'token' => $token,
+                    'cliente' => $usuario,
+                ]
             ], 201);
         } catch (\Illuminate\Database\QueryException $e) {
             // Error de la base de datos
@@ -137,8 +144,8 @@ class CustomersController extends Controller
             }
 
 
-            // regSi las credenciales son válidas, generar un token para el cliente
-            $token = $this->generateToken($cliente);
+            // Credenciales válidas: emitir token Sanctum (7 días, ability 'cliente')
+            $token = $cliente->createToken('tienda', ['cliente'])->plainTextToken;
 
             // Devolver la respuesta con el token y los datos del cliente
             return response()->json([
@@ -156,54 +163,48 @@ class CustomersController extends Controller
                 'status' => 500,
                 'message' => 'Error al iniciar sesión: ' . $e->getMessage(),
                 'data' => null,
-                'token' => $e
-            ]);
-        }
-    }
-
-    private function generateToken($cliente)
-    {
-        // Aquí puedes generar un token único para el cliente
-        // Por ejemplo, puedes utilizar una combinación de su ID y una cadena aleatoria
-        return md5($cliente->id . '_' . uniqid());
-    }
-    public function getData(Request $request)
-    {
-        try {
-            // Obtener el ID del cliente desde la solicitud
-            $clienteId = $request->input('clienteId');
-
-            // Buscar al cliente por su ID
-            $cliente = Customers::find($clienteId);
-
-            // Verificar si se encontró al cliente
-            if (!$cliente) {
-                return response()->json([
-                    'success' => false,
-                    'status' => 404,
-                    'message' => 'Cliente no encontrado',
-                    'data' => null
-                ], 404);
-            }
-
-            // Devolver la información del cliente
-            return response()->json([
-                'success' => true,
-                'status' => 200,
-                'message' => 'Información del cliente obtenida correctamente',
-                'data' => $cliente
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'status' => 500,
-                'message' => 'Error al obtener la información del cliente: ' . $e->getMessage(),
-                'data' => null
             ], 500);
         }
     }
+
+    /**
+     * Cierra la sesión del cliente revocando el token con el que llegó la petición.
+     */
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'success' => true,
+            'status' => 200,
+            'message' => 'Sesión cerrada',
+            'data' => null
+        ], 200);
+    }
+
+    public function getData(Request $request)
+    {
+        // El cliente autenticado por el token Sanctum. Se ignora cualquier
+        // 'clienteId' que venga en la query: un cliente sólo ve sus propios datos.
+        return response()->json([
+            'success' => true,
+            'status' => 200,
+            'message' => 'Información del cliente obtenida correctamente',
+            'data' => $request->user()
+        ], 200);
+    }
     public function update(Request $request, $id)
     {
+        // Un cliente sólo puede modificar su propia cuenta
+        if ((int) $id !== (int) $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'status' => 403,
+                'message' => 'No autorizado',
+                'data' => null
+            ], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'nombre' => 'sometimes|required|string',
             'apellido' => 'sometimes|required|string',
@@ -303,7 +304,6 @@ class CustomersController extends Controller
     {
         // Validación del request
         $validator = Validator::make($request->all(), [
-            'customer_id' => 'required|exists:customers,id', // Verifica que el customer_id exista
             'images' => 'required|array',                   // Asegura que 'images' sea un array
             'images.*.image' => 'required|string',          // Cada imagen debe ser una cadena en Base64
             'images.*.peso' => 'nullable|numeric',           // El peso es opcional y debe ser una cadena
@@ -320,7 +320,8 @@ class CustomersController extends Controller
         }
 
         try {
-            $customerId = $request->input('customer_id');
+            // Las imágenes siempre se asocian al cliente autenticado
+            $customerId = $request->user()->id;
             $images = $request->input('images');
 
             // Guardar cada imagen en la tabla seguimiento_clientes_imagenes
@@ -362,9 +363,19 @@ class CustomersController extends Controller
         }
     }
 
-    public function listImages($customerId)
+    public function listImages(Request $request, $customerId)
     {
         try {
+            // Un cliente sólo puede ver sus propias imágenes
+            if ((int) $customerId !== (int) $request->user()->id) {
+                return response()->json([
+                    'success' => false,
+                    'status' => 403,
+                    'message' => 'No autorizado',
+                    'data' => null
+                ], 403);
+            }
+
             // Verificar si el cliente existe
             $cliente = Customers::find($customerId);
             if (!$cliente) {
@@ -406,9 +417,19 @@ class CustomersController extends Controller
         }
     }
 
-    public function deleteImage($customerId, $imageId)
+    public function deleteImage(Request $request, $customerId, $imageId)
     {
         try {
+            // Un cliente sólo puede borrar sus propias imágenes
+            if ((int) $customerId !== (int) $request->user()->id) {
+                return response()->json([
+                    'success' => false,
+                    'status' => 403,
+                    'message' => 'No autorizado',
+                    'data' => null
+                ], 403);
+            }
+
             // Verificar si el cliente existe
             $cliente = Customers::find($customerId);
             if (!$cliente) {

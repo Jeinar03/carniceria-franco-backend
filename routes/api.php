@@ -8,7 +8,6 @@ use App\Http\Controllers\MercadoPagoController;
 use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\SitioApiController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,11 +15,17 @@ use Illuminate\Support\Facades\Route;
 | API Routes
 |--------------------------------------------------------------------------
 |
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| is assigned the "api" middleware group. Enjoy building your API!
+| Prefijo /api/v1. Autenticación: Laravel Sanctum (tokens personales del
+| cliente de la tienda). Rutas divididas en:
+|   - Públicas: catálogo (solo lectura), sitio, login/registro, webhook MP.
+|   - Protegidas (auth:sanctum): datos y ventas del cliente. El controlador
+|     valida además que el cliente sea dueño del recurso (ownership).
 |
+| Rutas eliminadas a propósito (quedan en el historial de git): escritura de
+| catálogo (POST/PUT productos y categorías) y GET /ventas (todas las ventas).
+| El panel admin es Livewire con sesión y no consume la API para eso.
 */
+
 Route::options('/{any}', function () {
     $allowed = (array) config('cors.allowed_origins', ['*']);
     $origin = request()->headers->get('Origin');
@@ -34,121 +39,98 @@ Route::options('/{any}', function () {
         'Access-Control-Allow-Headers' => 'X-Requested-With, Content-Type, X-Token-Auth, Authorization',
     ]);
 })->where('any', '.*');
-Route::middleware('auth:api')->get('/user', function (Request $request) {
-    return $request->user();
-});
+
 Route::group(['middleware' => 'cors'], function () {
 
     Route::prefix('v1')->group(function () {
 
-        Route::prefix('clientes')->group(function () {
-            Route::get('/data', [CustomersController::class, 'getData'])->name('clientes.data');
-            Route::put('/{id}', [CustomersController::class, 'update'])->name('clientes.update');
-            Route::patch('/{id}', [CustomersController::class, 'update'])->name('clientes.patch');
-            Route::post('/login', [CustomersController::class, 'login'])->name('clientes.login');
-            Route::post('/registro', [CustomersController::class, 'store'])->name('clientes.store');
+        /*
+        |------------------------------------------------------------------
+        | PÚBLICAS
+        |------------------------------------------------------------------
+        */
 
-            // Mantener rutas de imágenes si aún se usan
-            Route::post('/imagenes', [CustomersController::class, 'storeImages'])->name('clientes.imagenes.store');
-            Route::get('/{id}/imagenes', [CustomersController::class, 'listImages'])->name('clientes.imagenes.list');
-            Route::delete('/{customerId}/imagenes/{imageId}', [CustomersController::class, 'deleteImage'])->name('clientes.imagenes.delete');
-        });
+        // Autenticación del cliente
+        Route::post('clientes/login',    [CustomersController::class, 'login'])->name('clientes.login');
+        Route::post('clientes/registro', [CustomersController::class, 'store'])->name('clientes.store');
+        // Alias de compatibilidad
+        Route::post('usuarios/login', [CustomersController::class, 'login']);
+        Route::post('usuarios',       [CustomersController::class, 'store']);
 
-        // Mantener alias para compatibilidad hacia atrás
-        Route::prefix('usuarios')->group(function () {
-            Route::get('/customer-data', [CustomersController::class, 'getData']);
-            Route::put('/update/{id}', [CustomersController::class, 'update']);
-            Route::patch('/update/{id}', [CustomersController::class, 'update']);
-            Route::post('/login', [CustomersController::class, 'login']);
-            Route::post('/', [CustomersController::class, 'store']);
-        });
-
-        // Rutas de Categorías
+        // Catálogo (solo lectura)
         Route::prefix('categorias')->group(function () {
-            Route::get('/', [CategoriesController::class, 'index'])->name('api.categorias.index');
-            Route::get('/all', [CategoriesController::class, 'all'])->name('api.categorias.all');
-            Route::get('/{id}', [CategoriesController::class, 'show'])->name('api.categorias.show');
+            Route::get('/',              [CategoriesController::class, 'index'])->name('api.categorias.index');
+            Route::get('/all',           [CategoriesController::class, 'all'])->name('api.categorias.all');
+            Route::get('/{id}',          [CategoriesController::class, 'show'])->name('api.categorias.show');
             Route::get('/{id}/productos', [CategoriesController::class, 'getProducts'])->name('api.categorias.productos');
-            Route::post('/', [CategoriesController::class, 'store'])->name('api.categorias.store');
-            Route::put('/{id}', [CategoriesController::class, 'update'])->name('api.categorias.update');
         });
 
-        // Rutas de Productos
         Route::prefix('productos')->group(function () {
-            Route::get('/', [ProductsController::class, 'index'])->name('api.productos.index');
-            Route::get('/destacados', [ProductsController::class, 'featured'])->name('api.productos.destacados');
-            Route::get('/ofertas', [ProductsController::class, 'offers'])->name('api.productos.ofertas');
-            Route::get('/buscar', [ProductsController::class, 'search'])->name('api.productos.buscar');
+            Route::get('/',                    [ProductsController::class, 'index'])->name('api.productos.index');
+            Route::get('/destacados',          [ProductsController::class, 'featured'])->name('api.productos.destacados');
+            Route::get('/ofertas',             [ProductsController::class, 'offers'])->name('api.productos.ofertas');
+            Route::get('/buscar',              [ProductsController::class, 'search'])->name('api.productos.buscar');
             Route::get('/categoria/{categoryId}', [ProductsController::class, 'byCategory'])->name('api.productos.categoria');
-            Route::get('/{id}', [ProductsController::class, 'show'])->name('api.productos.show');
-            Route::get('/{id}/stock', [ProductsController::class, 'checkStock'])->name('api.productos.stock');
-            Route::post('/', [ProductsController::class, 'store'])->name('api.productos.store');
-            Route::put('/{id}', [ProductsController::class, 'update'])->name('api.productos.update');
+            Route::get('/{id}',                [ProductsController::class, 'show'])->name('api.productos.show');
+            Route::get('/{id}/stock',          [ProductsController::class, 'checkStock'])->name('api.productos.stock');
         });
 
-        // Rutas de Ventas/Compras
-        Route::prefix('ventas')->group(function () {
-            // Crear una nueva compra
-            Route::post('/', [SalesController::class, 'store'])->name('api.ventas.store');
+        // Configuración del sitio
+        Route::get('sitio/config',  [SitioApiController::class, 'getConfig'])->name('api.sitio.config');
+        Route::get('sitio/alertas', [SitioApiController::class, 'getAlertas'])->name('api.sitio.alertas');
 
-            // Historial de compras del cliente
-            Route::get('/cliente/{customerId}', [SalesController::class, 'getCustomerPurchases'])->name('api.ventas.cliente.historial');
+        // Webhook de MercadoPago (server-to-server, no puede mandar token)
+        Route::post('mercadopago/webhook', [MercadoPagoController::class, 'webhook']);
 
-            // Estadísticas de compras del cliente
-            Route::get('/cliente/{customerId}/estadisticas', [SalesController::class, 'getCustomerStats'])->name('api.ventas.cliente.estadisticas');
+        // Log de acciones/visitas (anónimo, con límite de tasa)
+        Route::post('historial/guardar-accion', [LogController::class, 'store'])->middleware('throttle:30,1');
 
-            // Últimas compras del cliente
-            Route::get('/cliente/{customerId}/recientes', [SalesController::class, 'getRecentPurchases'])->name('api.ventas.cliente.recientes');
+        /*
+        |------------------------------------------------------------------
+        | PROTEGIDAS — cliente autenticado (token Sanctum)
+        |------------------------------------------------------------------
+        */
+        Route::middleware('auth:sanctum')->group(function () {
 
-            // Recomendaciones personalizadas para el cliente
-            Route::get('/cliente/{customerId}/recomendaciones', [SalesController::class, 'getRecommendedPurchases'])->name('api.ventas.cliente.recomendaciones');
+            // Cuenta del cliente
+            Route::get('clientes/data',          [CustomersController::class, 'getData'])->name('clientes.data');
+            Route::get('usuarios/customer-data', [CustomersController::class, 'getData']); // alias
+            Route::match(['put', 'patch'], 'clientes/{id}',        [CustomersController::class, 'update'])->name('clientes.update');
+            Route::match(['put', 'patch'], 'usuarios/update/{id}', [CustomersController::class, 'update']); // alias
+            Route::post('clientes/logout', [CustomersController::class, 'logout'])->name('clientes.logout');
 
-            // Todas las ventas (admin)
-            Route::get('/', [SalesController::class, 'getAllSales'])->name('api.ventas.index');
+            // Imágenes de seguimiento del cliente
+            Route::post('clientes/imagenes',                          [CustomersController::class, 'storeImages'])->name('clientes.imagenes.store');
+            Route::get('clientes/{id}/imagenes',                      [CustomersController::class, 'listImages'])->name('clientes.imagenes.list');
+            Route::delete('clientes/{customerId}/imagenes/{imageId}', [CustomersController::class, 'deleteImage'])->name('clientes.imagenes.delete');
 
-            // Detalle de una compra específica
-            Route::get('/{saleId}', [SalesController::class, 'getPurchaseDetail'])->name('api.ventas.detalle');
+            // Ventas del cliente
+            Route::prefix('ventas')->group(function () {
+                Route::post('/', [SalesController::class, 'store'])->name('api.ventas.store');
 
-            // Subir evidencia de transferencia (imagen/pdf)
-            Route::post('/{saleId}/evidencia-transferencia', [SalesController::class, 'uploadTransferEvidence'])->name('api.ventas.transferencia.evidencia');
+                Route::get('/cliente/{customerId}',                 [SalesController::class, 'getCustomerPurchases'])->name('api.ventas.cliente.historial');
+                Route::get('/cliente/{customerId}/estadisticas',    [SalesController::class, 'getCustomerStats'])->name('api.ventas.cliente.estadisticas');
+                Route::get('/cliente/{customerId}/recientes',       [SalesController::class, 'getRecentPurchases'])->name('api.ventas.cliente.recientes');
+                Route::get('/cliente/{customerId}/recomendaciones', [SalesController::class, 'getRecommendedPurchases'])->name('api.ventas.cliente.recomendaciones');
 
-            // Ver evidencia de transferencia (imagen/pdf)
-            Route::get('/{saleId}/evidencia-transferencia', [SalesController::class, 'showTransferEvidence'])->name('api.ventas.transferencia.evidencia.show');
+                Route::get('/{saleId}',                          [SalesController::class, 'getPurchaseDetail'])->name('api.ventas.detalle');
+                Route::post('/{saleId}/evidencia-transferencia', [SalesController::class, 'uploadTransferEvidence'])->name('api.ventas.transferencia.evidencia');
+                Route::get('/{saleId}/evidencia-transferencia',  [SalesController::class, 'showTransferEvidence'])->name('api.ventas.transferencia.evidencia.show');
+                Route::put('/{saleId}/cancelar',                 [SalesController::class, 'cancelPurchase'])->name('api.ventas.cancelar');
+            });
 
-            // Cancelar una compra
-            Route::put('/{saleId}/cancelar', [SalesController::class, 'cancelPurchase'])->name('api.ventas.cancelar');
+            // Encuestas de indicadores por pedido
+            Route::prefix('indicadores')->group(function () {
+                Route::get('/pedidos/{saleId}/preguntas',   [IndicadoresApiController::class, 'preguntasPedido'])->name('api.indicadores.preguntas');
+                Route::post('/pedidos/{saleId}/respuestas', [IndicadoresApiController::class, 'guardarRespuestas'])->name('api.indicadores.respuestas');
+            });
+
+            // Checkout MercadoPago
+            Route::prefix('mercadopago')->group(function () {
+                Route::post('/create-preference',            [MercadoPagoController::class, 'createPreference']);
+                Route::get('/payment-status/{paymentId}',    [MercadoPagoController::class, 'checkPaymentStatus']);
+                Route::get('/venta-by-preference/{preferenceId}', [MercadoPagoController::class, 'getVentaByPreference']);
+            });
         });
-
-        Route::prefix('indicadores')->group(function () {
-            Route::get('/pedidos/{saleId}/preguntas', [IndicadoresApiController::class, 'preguntasPedido'])->name('api.indicadores.preguntas');
-            Route::post('/pedidos/{saleId}/respuestas', [IndicadoresApiController::class, 'guardarRespuestas'])->name('api.indicadores.respuestas');
-        });
-
-        // Rutas de Mercado Pago
-        Route::prefix('mercadopago')->group(function () {
-            // Crear preferencia de pago
-            Route::post('/create-preference', [MercadoPagoController::class, 'createPreference']);
-
-            // Webhook de notificaciones
-            Route::post('/webhook', [MercadoPagoController::class, 'webhook']);
-
-            // Verificar estado de pago
-            Route::get('/payment-status/{paymentId}', [MercadoPagoController::class, 'checkPaymentStatus']);
-
-            // Obtener venta por preference
-            Route::get('/venta-by-preference/{preferenceId}', [MercadoPagoController::class, 'getVentaByPreference']);
-        });
-
-        Route::prefix('historial')->group(function () {
-
-            Route::post('/guardar-accion', [LogController::class, 'store']);
-        });
-
-        // Rutas del Sitio Web (públicas — sin autenticación requerida)
-        Route::prefix('sitio')->group(function () {
-            Route::get('/config',  [SitioApiController::class, 'getConfig'])->name('api.sitio.config');
-            Route::get('/alertas', [SitioApiController::class, 'getAlertas'])->name('api.sitio.alertas');
-        });
-
     });
 });
