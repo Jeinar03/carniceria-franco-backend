@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\ExportController;
 use App\Http\Controllers\InventoryReceiptController;
 use App\Http\Controllers\SalesController;
 use App\Http\Livewire\Categorias\CategoriasController;
@@ -29,7 +28,6 @@ Route::get('/', function () {
 
 Auth::routes(['register' => false]); // deshabilitamos el registro de nuevos users
 
-//Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 Route::get('/home', Dash::class);
 
 Route::middleware(['auth'])->group(function () {
