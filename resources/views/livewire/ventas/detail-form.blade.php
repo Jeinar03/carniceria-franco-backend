@@ -116,11 +116,11 @@
                             </div>
                             <div class="card-body py-3 px-3 sales-info-grid">
                                 <div><small class="text-muted">Nombre</small><strong class="d-block">{{ $sale->customer ? $sale->customer->nombre . ' ' . $sale->customer->apellido : 'Cliente general' }}</strong></div>
-                                <div><small class="text-muted">Correo</small><strong class="d-block">{{ $sale->customer->correo ?? 'Sin correo' }}</strong></div>
-                                <div><small class="text-muted">Telefono</small><strong class="d-block">{{ $sale->customer->telefono ?? 'N/A' }}</strong></div>
-                                <div><small class="text-muted">Direccion</small><strong class="d-block">{{ $sale->customer->direccion ?? 'N/A' }}</strong></div>
-                                <div><small class="text-muted">Ciudad</small><strong class="d-block">{{ ($sale->customer->ciudad ?? 'N/A') . ', ' . ($sale->customer->estado ?? '') }}</strong></div>
-                                <div><small class="text-muted">Tipo</small><strong class="d-block">{{ ucfirst($sale->customer->tipo_cliente ?? 'minorista') }}</strong></div>
+                                <div><small class="text-muted">Correo</small><strong class="d-block">{{ $sale->customer?->correo ?? 'Sin correo' }}</strong></div>
+                                <div><small class="text-muted">Telefono</small><strong class="d-block">{{ $sale->customer?->telefono ?? 'N/A' }}</strong></div>
+                                <div><small class="text-muted">Direccion</small><strong class="d-block">{{ $sale->customer?->direccion ?? 'N/A' }}</strong></div>
+                                <div><small class="text-muted">Ciudad</small><strong class="d-block">{{ ($sale->customer?->ciudad ?? 'N/A') . ', ' . ($sale->customer?->estado ?? '') }}</strong></div>
+                                <div><small class="text-muted">Tipo</small><strong class="d-block">{{ $sale->customer ? ucfirst($sale->customer->tipo_cliente ?? 'minorista') : 'N/A' }}</strong></div>
                             </div>
                         </div>
 

@@ -100,7 +100,7 @@
                             @foreach ($ventas as $index => $venta)
                                 @php
                                     $clienteNombre = $venta->customer ? $venta->customer->nombre . ' ' . $venta->customer->apellido : 'Cliente general';
-                                    $clienteEmail = $venta->customer->correo ?? 'Sin correo';
+                                    $clienteEmail = $venta->customer?->correo ?? 'Sin correo';
                                 @endphp
                                 <tr class="{{ $index % 2 == 0 ? 'ventas-row-even' : '' }}">
                                     <td>

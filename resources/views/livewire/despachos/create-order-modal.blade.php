@@ -21,7 +21,7 @@
                                 <div class="form-group">
                                     <label>Cliente</label>
                                     <select wire:model="createCustomerId" class="form-control">
-                                        <option value="">Selecciona un cliente</option>
+                                        <option value="">Cliente General (venta de mostrador)</option>
                                         @foreach($customers as $customer)
                                             <option value="{{ $customer->id }}">{{ $customer->nombre }} {{ $customer->apellido }}</option>
                                         @endforeach

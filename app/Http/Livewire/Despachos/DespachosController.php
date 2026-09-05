@@ -228,7 +228,7 @@ class DespachosController extends Component
                 $total = $subtotal - $descuento;
 
                 $sale = Sale::create([
-                    'customer_id' => $this->createCustomerId,
+                    'customer_id' => $this->createCustomerId ?: null,
                     'fecha_venta' => now(),
                     'subtotal' => $subtotal,
                     'descuento' => $descuento,
@@ -634,16 +634,17 @@ class DespachosController extends Component
 
     private function validateCreateOrderInputs(): ?string
     {
-        if (!$this->createCustomerId) {
-            return 'Selecciona un cliente';
-        }
-
         if (count($this->cart) === 0) {
             return 'Agrega productos al carrito';
         }
 
         if (!in_array($this->createMetodoPago, ['efectivo', 'tarjeta', 'transferencia', 'credito'], true)) {
             return 'Metodo de pago no valido';
+        }
+
+        // El credito se abona a la cuenta de un cliente real; no aplica a mostrador.
+        if (!$this->createCustomerId && $this->createMetodoPago === 'credito') {
+            return 'Selecciona un cliente para venta a credito';
         }
 
         return null;
