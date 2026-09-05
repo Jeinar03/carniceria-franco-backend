@@ -29,6 +29,15 @@ class CustomersController extends Controller
             'tipo_cliente' => 'nullable|in:minorista,mayorista,distribuidor',
             'limite_credito' => 'nullable|numeric|min:0',
             'descuento_preferencial' => 'nullable|numeric|min:0|max:100',
+        ], [
+            'nombre.required' => 'Ingresa tu nombre',
+            'apellido.required' => 'Ingresa tu apellido',
+            'correo.required' => 'Ingresa tu correo',
+            'correo.email' => 'Ingresa un correo válido',
+            'correo.unique' => 'Este correo ya está registrado',
+            'password.required' => 'Ingresa una contraseña',
+            'password.min' => 'La contraseña debe tener al menos 6 caracteres',
+            'telefono.min' => 'El teléfono debe tener al menos 10 dígitos',
         ]);
 
         if ($validator->fails()) {
