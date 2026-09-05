@@ -26,9 +26,41 @@
             padding: 40px 30px;
             text-align: center;
         }
-        .icon {
-            font-size: 48px;
-            margin-bottom: 15px;
+        .icon-badge {
+            position: relative;
+            width: 88px;
+            height: 88px;
+            margin: 0 auto 20px;
+        }
+        .brand-logo {
+            width: 88px;
+            height: 88px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #dc3545;
+            display: block;
+        }
+        .status-overlay {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        .status-overlay.ok {
+            background: #28a745;
+        }
+        .status-overlay.fail {
+            background: #dc3545;
         }
         h1 {
             font-size: 22px;
@@ -54,12 +86,14 @@
 </head>
 <body>
     <div class="card">
+        <div class="icon-badge">
+            <img src="{{ asset('images/logo.jpeg') }}" alt="Carnicería Franco" class="brand-logo">
+            <span class="status-overlay {{ $success ? 'ok' : 'fail' }}">{{ $success ? '✓' : '!' }}</span>
+        </div>
         @if($success)
-            <div class="icon">✅</div>
             <h1>Correo verificado</h1>
             <p>Tu cuenta en Carnicería Franco ya está confirmada. Puedes regresar a la tienda.</p>
         @else
-            <div class="icon">⚠️</div>
             <h1>Enlace inválido o vencido</h1>
             <p>Este enlace de verificación ya no es válido. Inicia sesión en la tienda y solicita que te reenvíen el correo de confirmación.</p>
         @endif
