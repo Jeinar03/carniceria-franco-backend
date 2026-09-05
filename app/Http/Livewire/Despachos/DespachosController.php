@@ -137,6 +137,11 @@ class DespachosController extends Component
         $precioOferta = $product->en_oferta ? (float) $product->precio_oferta : null;
         $precioFinal = $precioOferta ?? $precioUnitario;
 
+        // Si ya estaba en el carrito vendiendose por monto, se mantiene el modo
+        // y se recalcula el monto para que quede consistente con la nueva cantidad.
+        $modo = $this->cart[$productId]['modo'] ?? 'cantidad';
+        $montoPesos = $modo === 'monto' ? round($precioFinal * $newQty, 2) : null;
+
         $this->cart[$productId] = [
             'product_id' => $product->id,
             'codigo' => $product->codigo,
@@ -147,12 +152,69 @@ class DespachosController extends Component
             'precio_unitario' => $precioUnitario,
             'precio_oferta' => $precioOferta,
             'precio_final' => $precioFinal,
+            'modo' => $modo,
+            'monto_pesos' => $montoPesos,
         ];
+    }
+
+    /**
+     * Alterna entre vender un producto por cantidad/peso (kg) o por un monto
+     * en pesos ($) que el sistema convierte a kg con el precio del producto.
+     * Solo aplica a productos que se venden por kilogramo.
+     */
+    public function setModoVenta($productId, $modo)
+    {
+        if (!isset($this->cart[$productId]) || !in_array($modo, ['cantidad', 'monto'], true)) {
+            return;
+        }
+
+        if ($modo === 'monto' && $this->cart[$productId]['unidad_venta'] !== 'kilogramo') {
+            return;
+        }
+
+        $this->cart[$productId]['modo'] = $modo;
+
+        if ($modo === 'monto' && empty($this->cart[$productId]['monto_pesos'])) {
+            $precioFinal = (float) $this->cart[$productId]['precio_final'];
+            $cantidad = (float) $this->cart[$productId]['cantidad'];
+            $this->cart[$productId]['monto_pesos'] = round($precioFinal * $cantidad, 2) ?: round($precioFinal, 2);
+        }
+    }
+
+    public function updateMontoPesos($productId, $value)
+    {
+        if (!isset($this->cart[$productId]) || ($this->cart[$productId]['modo'] ?? 'cantidad') !== 'monto') {
+            return;
+        }
+
+        $monto = (float) $value;
+        if ($monto <= 0) {
+            $this->emit('despacho-error', 'El monto debe ser mayor a 0');
+            return;
+        }
+
+        $precioFinal = (float) $this->cart[$productId]['precio_final'];
+        if ($precioFinal <= 0) {
+            return;
+        }
+
+        $stock = (float) $this->cart[$productId]['stock'];
+        $cantidadCalculada = round($monto / $precioFinal, 2);
+
+        if ($cantidadCalculada > $stock) {
+            $montoMaximo = round($stock * $precioFinal, 2);
+            $this->emit('despacho-error', 'Ese monto excede el stock de ' . $this->cart[$productId]['nombre'] . ' (max. $' . number_format($montoMaximo, 2) . ')');
+            $cantidadCalculada = $stock;
+            $monto = $montoMaximo;
+        }
+
+        $this->cart[$productId]['monto_pesos'] = $monto;
+        $this->cart[$productId]['cantidad'] = $cantidadCalculada;
     }
 
     public function increaseQty($productId)
     {
-        if (!isset($this->cart[$productId])) {
+        if (!isset($this->cart[$productId]) || ($this->cart[$productId]['modo'] ?? 'cantidad') === 'monto') {
             return;
         }
 
@@ -167,7 +229,7 @@ class DespachosController extends Component
 
     public function decreaseQty($productId)
     {
-        if (!isset($this->cart[$productId])) {
+        if (!isset($this->cart[$productId]) || ($this->cart[$productId]['modo'] ?? 'cantidad') === 'monto') {
             return;
         }
 
@@ -182,7 +244,7 @@ class DespachosController extends Component
 
     public function updateQty($productId, $value)
     {
-        if (!isset($this->cart[$productId])) {
+        if (!isset($this->cart[$productId]) || ($this->cart[$productId]['modo'] ?? 'cantidad') === 'monto') {
             return;
         }
 
@@ -253,7 +315,7 @@ class DespachosController extends Component
                         'sale_id' => $sale->id,
                         'product_id' => $product->id,
                         'cantidad' => $detalle['cantidad'],
-                        'monto_pesos' => null,
+                        'monto_pesos' => $detalle['monto_pesos'],
                         'precio_unitario' => $detalle['precio_unitario'],
                         'precio_oferta' => $detalle['precio_oferta'],
                         'descuento' => 0,
@@ -312,7 +374,11 @@ class DespachosController extends Component
     {
         $subtotal = 0;
         foreach ($this->cart as $item) {
-            $subtotal += ((float) $item['precio_final']) * ((float) $item['cantidad']);
+            if (($item['modo'] ?? 'cantidad') === 'monto') {
+                $subtotal += (float) ($item['monto_pesos'] ?? 0);
+            } else {
+                $subtotal += ((float) $item['precio_final']) * ((float) $item['cantidad']);
+            }
         }
 
         return $subtotal;
@@ -662,7 +728,31 @@ class DespachosController extends Component
                 throw new \RuntimeException('Producto no disponible: ' . ($item['nombre'] ?? 'N/A'));
             }
 
-            $qty = (float) $item['cantidad'];
+            $precioUnitario = (float) $product->precio;
+            $precioOferta = $product->en_oferta ? (float) $product->precio_oferta : null;
+            $precioFinal = $precioOferta ?? $precioUnitario;
+
+            // El precio SIEMPRE se toma fresco de la BD (nunca del carrito en sesion),
+            // asi que el monto->kg tambien se recalcula aqui, no se confia en el del cliente.
+            $esVentaPorMonto = ($item['modo'] ?? 'cantidad') === 'monto' && $product->unidad_venta === 'kilogramo';
+
+            if ($esVentaPorMonto) {
+                $montoPesos = (float) ($item['monto_pesos'] ?? 0);
+                if ($montoPesos <= 0) {
+                    throw new \RuntimeException('Monto invalido para ' . $product->nombre);
+                }
+                if ($precioFinal <= 0) {
+                    throw new \RuntimeException('Precio invalido para ' . $product->nombre);
+                }
+
+                $qty = round($montoPesos / $precioFinal, 2);
+                $itemSubtotal = $montoPesos;
+            } else {
+                $qty = (float) $item['cantidad'];
+                $montoPesos = null;
+                $itemSubtotal = $precioFinal * $qty;
+            }
+
             if ($qty <= 0) {
                 throw new \RuntimeException('Cantidad invalida para ' . $product->nombre);
             }
@@ -671,16 +761,12 @@ class DespachosController extends Component
                 throw new \RuntimeException('Stock insuficiente para ' . $product->nombre . '. Disponible: ' . $product->stock);
             }
 
-            $precioUnitario = (float) $product->precio;
-            $precioOferta = $product->en_oferta ? (float) $product->precio_oferta : null;
-            $precioFinal = $precioOferta ?? $precioUnitario;
-            $itemSubtotal = $precioFinal * $qty;
-
             $subtotal += $itemSubtotal;
 
             $detalles[] = [
                 'product' => $product,
                 'cantidad' => $qty,
+                'monto_pesos' => $montoPesos,
                 'precio_unitario' => $precioUnitario,
                 'precio_oferta' => $precioOferta,
                 'subtotal' => $itemSubtotal,
