@@ -74,19 +74,29 @@ class SaleDetail extends Model
         parent::boot();
 
         static::creating(function ($detail) {
-            // Calcular subtotal (precio * cantidad)
-            $precioFinal = $detail->precio_oferta ?? $detail->precio_unitario;
-            $detail->subtotal = $precioFinal * $detail->cantidad;
-
-            // Calcular total (subtotal - descuento)
+            $detail->subtotal = self::calcularSubtotal($detail);
             $detail->total = $detail->subtotal - ($detail->descuento ?? 0);
         });
 
         static::updating(function ($detail) {
-            // Recalcular si cambia cantidad o precios
-            $precioFinal = $detail->precio_oferta ?? $detail->precio_unitario;
-            $detail->subtotal = $precioFinal * $detail->cantidad;
+            $detail->subtotal = self::calcularSubtotal($detail);
             $detail->total = $detail->subtotal - ($detail->descuento ?? 0);
         });
+    }
+
+    /**
+     * En venta por cantidad, subtotal = precio * cantidad.
+     * En venta por monto ($), el subtotal ES el monto que se cobró: usar
+     * precio * cantidad ahí metería diferencia de centavos porque la
+     * cantidad (kg) resultante ya viene redondeada a 2 decimales.
+     */
+    private static function calcularSubtotal($detail)
+    {
+        if (!is_null($detail->monto_pesos) && (float) $detail->monto_pesos > 0) {
+            return (float) $detail->monto_pesos;
+        }
+
+        $precioFinal = $detail->precio_oferta ?? $detail->precio_unitario;
+        return $precioFinal * $detail->cantidad;
     }
 }
