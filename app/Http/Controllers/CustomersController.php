@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Customers;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class CustomersController extends Controller
@@ -62,6 +63,13 @@ class CustomersController extends Controller
 
             // Auto-login: emitir token Sanctum tras el registro
             $token = $usuario->createToken('tienda', ['cliente'])->plainTextToken;
+
+            // Si el correo de verificación falla (SMTP caído, etc.) no debe tumbar el registro.
+            try {
+                $usuario->sendEmailVerificationNotification();
+            } catch (\Throwable $e) {
+                Log::error('No se pudo enviar el correo de verificación: ' . $e->getMessage());
+            }
 
             return response()->json([
                 'success' => true,
@@ -468,5 +476,63 @@ class CustomersController extends Controller
                 'data' => null
             ], 500);
         }
+    }
+
+    /**
+     * Se llega aquí desde el link firmado del correo de verificación.
+     * La firma/expiración ya la valida el middleware "signed" de la ruta.
+     */
+    public function verifyEmail(Request $request, $id, $hash)
+    {
+        $tiendaUrl = config('cors.allowed_origins.0', '/');
+        $cliente = Customers::find($id);
+
+        $valido = $cliente && hash_equals((string) $hash, sha1($cliente->getEmailForVerification()));
+
+        if ($valido && ! $cliente->hasVerifiedEmail()) {
+            $cliente->markEmailAsVerified();
+        }
+
+        return response()
+            ->view('emails.verificacion-resultado', [
+                'success' => $valido,
+                'tiendaUrl' => $tiendaUrl,
+            ], $valido ? 200 : 400);
+    }
+
+    /**
+     * El cliente autenticado pide que le reenvíen el correo de verificación.
+     */
+    public function resendVerification(Request $request)
+    {
+        $cliente = $request->user();
+
+        if ($cliente->hasVerifiedEmail()) {
+            return response()->json([
+                'success' => true,
+                'status' => 200,
+                'message' => 'El correo ya estaba verificado',
+                'data' => null
+            ], 200);
+        }
+
+        try {
+            $cliente->sendEmailVerificationNotification();
+        } catch (\Throwable $e) {
+            Log::error('No se pudo reenviar el correo de verificación: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'status' => 500,
+                'message' => 'No se pudo enviar el correo, intenta más tarde',
+                'data' => null
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'status' => 200,
+            'message' => 'Correo de verificación reenviado',
+            'data' => null
+        ], 200);
     }
 }

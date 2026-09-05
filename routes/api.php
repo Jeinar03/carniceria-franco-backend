@@ -57,6 +57,11 @@ Route::group(['middleware' => 'cors'], function () {
         Route::post('usuarios/login', [CustomersController::class, 'login']);
         Route::post('usuarios',       [CustomersController::class, 'store']);
 
+        // Link firmado del correo de verificación (lo abre el cliente desde su bandeja)
+        Route::get('clientes/email/verificar/{id}/{hash}', [CustomersController::class, 'verifyEmail'])
+            ->middleware(['signed', 'throttle:6,1'])
+            ->name('api.v1.clientes.verificar');
+
         // Catálogo (solo lectura)
         Route::prefix('categorias')->group(function () {
             Route::get('/',              [CategoriesController::class, 'index'])->name('api.categorias.index');
@@ -98,6 +103,9 @@ Route::group(['middleware' => 'cors'], function () {
             Route::match(['put', 'patch'], 'clientes/{id}',        [CustomersController::class, 'update'])->name('clientes.update');
             Route::match(['put', 'patch'], 'usuarios/update/{id}', [CustomersController::class, 'update']); // alias
             Route::post('clientes/logout', [CustomersController::class, 'logout'])->name('clientes.logout');
+            Route::post('clientes/email/reenviar', [CustomersController::class, 'resendVerification'])
+                ->middleware('throttle:6,1')
+                ->name('clientes.email.reenviar');
 
             // Imágenes de seguimiento del cliente
             Route::post('clientes/imagenes',                          [CustomersController::class, 'storeImages'])->name('clientes.imagenes.store');

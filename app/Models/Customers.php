@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Notifications\VerifyCustomerEmail;
 
-class Customers extends Authenticatable
+class Customers extends Authenticatable implements MustVerifyEmail
 {
-    use HasFactory, HasApiTokens;
+    use HasFactory, HasApiTokens, Notifiable;
     protected $table = 'customers';
     protected $fillable = [
         'nombre',
@@ -36,6 +39,7 @@ class Customers extends Authenticatable
     ];
 
     protected $casts = [
+        'email_verified_at' => 'datetime',
         'fecha_registro' => 'datetime',
         'fecha_ultima_compra' => 'datetime',
         'total_compras' => 'decimal:2',
@@ -64,5 +68,38 @@ class Customers extends Authenticatable
     public function indicadorRespuestas()
     {
         return $this->hasMany(IndicadorRespuesta::class, 'customer_id');
+    }
+
+    /**
+     * MustVerifyEmail asume una columna "email"; aquí se llama "correo".
+     */
+    public function getEmailForVerification()
+    {
+        return $this->correo;
+    }
+
+    /**
+     * Notifiable asume una columna "email" para enviar el correo; aquí es "correo".
+     */
+    public function routeNotificationForMail($notification = null)
+    {
+        return $this->correo;
+    }
+
+    public function hasVerifiedEmail()
+    {
+        return ! is_null($this->email_verified_at);
+    }
+
+    public function markEmailAsVerified()
+    {
+        return $this->forceFill([
+            'email_verified_at' => $this->freshTimestamp(),
+        ])->save();
+    }
+
+    public function sendEmailVerificationNotification()
+    {
+        $this->notify(new VerifyCustomerEmail);
     }
 }
