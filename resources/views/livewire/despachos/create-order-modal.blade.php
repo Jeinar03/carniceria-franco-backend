@@ -148,23 +148,55 @@
                                                 <small class="text-muted">{{ $item['codigo'] }} | Stock: {{ number_format($item['stock'], 2) }}</small>
                                             </td>
                                             <td class="text-center">
-                                                <div class="input-group input-group-sm">
-                                                    <div class="input-group-prepend">
-                                                        <button class="btn btn-outline-secondary" wire:click="decreaseQty({{ $item['product_id'] }})">-</button>
+                                                @if($item['unidad_venta'] === 'kilogramo')
+                                                    <div class="btn-group btn-group-sm btn-block mb-1" role="group">
+                                                        <button type="button"
+                                                                class="btn {{ ($item['modo'] ?? 'cantidad') === 'cantidad' ? 'btn-secondary' : 'btn-outline-secondary' }}"
+                                                                wire:click="setModoVenta({{ $item['product_id'] }}, 'cantidad')">Kg</button>
+                                                        <button type="button"
+                                                                class="btn {{ ($item['modo'] ?? 'cantidad') === 'monto' ? 'btn-secondary' : 'btn-outline-secondary' }}"
+                                                                wire:click="setModoVenta({{ $item['product_id'] }}, 'monto')">$</button>
                                                     </div>
-                                                    <input type="number"
-                                                           min="0"
-                                                           step="0.01"
-                                                           class="form-control text-center"
-                                                           value="{{ $item['cantidad'] }}"
-                                                           wire:change="updateQty({{ $item['product_id'] }}, $event.target.value)">
-                                                    <div class="input-group-append">
-                                                        <button class="btn btn-outline-secondary" wire:click="increaseQty({{ $item['product_id'] }})">+</button>
+                                                @endif
+
+                                                @if(($item['modo'] ?? 'cantidad') === 'monto')
+                                                    <div class="input-group input-group-sm">
+                                                        <div class="input-group-prepend">
+                                                            <span class="input-group-text">$</span>
+                                                        </div>
+                                                        <input type="number"
+                                                               min="0.01"
+                                                               step="0.01"
+                                                               class="form-control text-center"
+                                                               value="{{ $item['monto_pesos'] }}"
+                                                               wire:change="updateMontoPesos({{ $item['product_id'] }}, $event.target.value)">
                                                     </div>
-                                                </div>
+                                                    <small class="text-muted d-block mt-1">&asymp; {{ number_format($item['cantidad'], 2) }} kg</small>
+                                                @else
+                                                    <div class="input-group input-group-sm">
+                                                        <div class="input-group-prepend">
+                                                            <button class="btn btn-outline-secondary" wire:click="decreaseQty({{ $item['product_id'] }})">-</button>
+                                                        </div>
+                                                        <input type="number"
+                                                               min="0"
+                                                               step="0.01"
+                                                               class="form-control text-center"
+                                                               value="{{ $item['cantidad'] }}"
+                                                               wire:change="updateQty({{ $item['product_id'] }}, $event.target.value)">
+                                                        <div class="input-group-append">
+                                                            <button class="btn btn-outline-secondary" wire:click="increaseQty({{ $item['product_id'] }})">+</button>
+                                                        </div>
+                                                    </div>
+                                                @endif
                                             </td>
                                             <td class="text-right">${{ number_format($item['precio_final'], 2) }}</td>
-                                            <td class="text-right">${{ number_format($item['precio_final'] * $item['cantidad'], 2) }}</td>
+                                            <td class="text-right">
+                                                @if(($item['modo'] ?? 'cantidad') === 'monto')
+                                                    ${{ number_format($item['monto_pesos'], 2) }}
+                                                @else
+                                                    ${{ number_format($item['precio_final'] * $item['cantidad'], 2) }}
+                                                @endif
+                                            </td>
                                             <td class="text-center">
                                                 <button class="btn btn-sm btn-outline-danger" wire:click="removeFromCart({{ $item['product_id'] }})">
                                                     <i class="fas fa-trash"></i>
