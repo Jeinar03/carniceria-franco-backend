@@ -40,8 +40,25 @@
                         </div>
                         <div class="col-sm-12">
                             <div class="alert alert-light border mb-0">
-                                <div class="text-muted">Cliente</div>
-                                <strong>{{ $sale->customer ? $sale->customer->nombre . ' ' . $sale->customer->apellido : 'Cliente General' }}</strong>
+                                <div class="text-muted mb-2"><i class="fas fa-user"></i> Datos del cliente <small>(para compartir con el mandadito al entregar)</small></div>
+                                <div class="row">
+                                    <div class="col-md-3 col-sm-6 mb-2 mb-md-0">
+                                        <small class="text-muted d-block">Nombre</small>
+                                        <strong>{{ $sale->customer ? $sale->customer->nombre . ' ' . $sale->customer->apellido : 'Cliente General' }}</strong>
+                                    </div>
+                                    <div class="col-md-3 col-sm-6 mb-2 mb-md-0">
+                                        <small class="text-muted d-block">Telefono</small>
+                                        <strong>{{ $sale->customer?->telefono ?? 'N/A' }}</strong>
+                                    </div>
+                                    <div class="col-md-4 col-sm-8 mb-2 mb-md-0">
+                                        <small class="text-muted d-block">Direccion</small>
+                                        <strong>{{ $sale->customer?->direccion ?? 'N/A' }}</strong>
+                                    </div>
+                                    <div class="col-md-2 col-sm-4">
+                                        <small class="text-muted d-block">Ciudad</small>
+                                        <strong>{{ $sale->customer?->ciudad ?? 'N/A' }}</strong>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
