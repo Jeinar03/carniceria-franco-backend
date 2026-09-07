@@ -107,12 +107,24 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+
+        // Bootstrap 4 + Livewire: tras el re-render que sigue a guardar, el
+        // .modal-backdrop a veces no se elimina y deja la pantalla "congelada".
+        // Se limpia a mano, igual que el botón CERRAR del footer.
+        function cerrarModal() {
+            $('#theModal').modal('hide');
+            setTimeout(function () {
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open').css('padding-right', '');
+            }, 200);
+        }
+
         window.livewire.on('precio-added', Msg => {
-            $('#theModal').modal('hide')
+            cerrarModal()
             noty(Msg)
         })
         window.livewire.on('precio-updated', Msg => {
-            $('#theModal').modal('hide')
+            cerrarModal()
             noty(Msg)
         })
         window.livewire.on('precio-deleted', Msg => {
@@ -122,7 +134,7 @@
             noty(Msg, 2)
         })
         window.livewire.on('hide-modal', Msg => {
-            $('#theModal').modal('hide')
+            cerrarModal()
         })
         window.livewire.on('show-modal', Msg => {
             $('#theModal').modal('show')
