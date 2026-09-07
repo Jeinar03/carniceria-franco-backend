@@ -145,6 +145,19 @@ class MenuConfig
                                 '<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>'
                             ]
                         ]
+                    ],
+                    [
+                        'url' => 'clientes/precios-especiales',
+                        'title' => 'Precios especiales',
+                        'gradient' => 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+                        'shadow' => 'rgba(250, 112, 154, 0.3)',
+                        'icon' => [
+                            'name' => 'feather-tag',
+                            'paths' => [
+                                '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>',
+                                '<line x1="7" y1="7" x2="7.01" y2="7"></line>'
+                            ]
+                        ]
                     ]
                 ]
             ],

@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Customers;
 use App\Services\OrderNotificationService;
 use App\Services\InventoryService;
+use App\Services\PricingService;
 use App\Exceptions\InsufficientStockException;
 use Exception;
 use Illuminate\Http\Request;
@@ -18,10 +19,12 @@ use Illuminate\Support\Facades\Validator;
 class SalesController extends Controller
 {
     private $inventory;
+    private $pricing;
 
-    public function __construct(InventoryService $inventory)
+    public function __construct(InventoryService $inventory, PricingService $pricing)
     {
         $this->inventory = $inventory;
+        $this->pricing = $pricing;
     }
 
     /**
@@ -98,12 +101,17 @@ class SalesController extends Controller
                     throw new Exception("El producto {$product->nombre} no está disponible");
                 }
 
+                // Precio para este cliente: especial si lo tiene (gana sobre la
+                // oferta), si no el de lista con oferta. Punto único: PricingService.
+                ['precio_unitario' => $precioUnitario, 'precio_oferta' => $precioOferta]
+                    = $this->pricing->precioParaCliente($product, (int) $request->customer_id);
+                $precioFinal = $precioOferta ?? $precioUnitario;
+
                 // Manejar venta por monto en pesos
                 $cantidad = $item['cantidad'];
                 if (isset($item['monto_pesos']) && $item['monto_pesos'] > 0) {
                     // Convertir monto en pesos a cantidad según la unidad de venta
                     if (in_array($product->unidad_venta, ['kilogramo', 'gramo'])) {
-                        $precioFinal = $product->en_oferta && $product->precio_oferta ? $product->precio_oferta : $product->precio;
                         $cantidadKg = $item['monto_pesos'] / $precioFinal;
 
                         if ($product->unidad_venta == 'kilogramo') {
@@ -118,10 +126,6 @@ class SalesController extends Controller
                     throw new InsufficientStockException($product->nombre, (float) $product->stock, (float) $cantidad);
                 }
 
-                // Calcular precio final (con oferta si aplica)
-                $precioUnitario = $product->precio;
-                $precioOferta = $product->en_oferta ? $product->precio_oferta : null;
-                $precioFinal = $precioOferta ?? $precioUnitario;
                 $itemSubtotal = $precioFinal * $cantidad;
 
                 $subtotal += $itemSubtotal;

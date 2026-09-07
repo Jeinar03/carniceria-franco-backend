@@ -7,12 +7,15 @@ use Livewire\WithPagination;
 use App\Models\Sale;
 use App\Models\SaleDetail;
 use App\Services\InventoryService;
+use App\Services\PricingService;
 use App\Models\Product;
 use App\Models\Customers;
 use Carbon\Carbon;
 use App\Services\OrderNotificationService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 class DespachosController extends Component
@@ -39,6 +42,13 @@ class DespachosController extends Component
     public $createDescuento = 0;
     public $productSearch = '';
     public $cart = [];
+
+    // Alta rápida de cliente de mostrador (dentro del modal de Crear Orden)
+    public $showNuevoCliente = false;
+    public $nuevoNombre = '';
+    public $nuevoApellido = '';
+    public $nuevoTelefono = '';
+    public $nuevoCorreo = '';
 
     protected $paginationTheme = 'bootstrap';
 
@@ -116,6 +126,108 @@ class DespachosController extends Component
         $this->emit('hide-create-order-modal');
     }
 
+    /**
+     * Id del cliente del pedido (null = "Cliente General" / mostrador).
+     */
+    private function clientePedidoId(): ?int
+    {
+        return $this->createCustomerId ? (int) $this->createCustomerId : null;
+    }
+
+    /**
+     * Al cambiar el cliente del pedido, se recalculan los precios del carrito:
+     * ese cliente puede tener precios especiales en algunos productos.
+     */
+    public function updatedCreateCustomerId()
+    {
+        if (empty($this->cart)) {
+            return;
+        }
+
+        $customerId = $this->clientePedidoId();
+        $pricing = app(PricingService::class);
+
+        foreach ($this->cart as $productId => $item) {
+            $product = Product::find($item['product_id']);
+            if (!$product) {
+                unset($this->cart[$productId]);
+                continue;
+            }
+
+            ['precio_unitario' => $precioUnitario, 'precio_oferta' => $precioOferta]
+                = $pricing->precioParaCliente($product, $customerId);
+            $precioFinal = $precioOferta ?? $precioUnitario;
+
+            $this->cart[$productId]['precio_unitario'] = $precioUnitario;
+            $this->cart[$productId]['precio_oferta'] = $precioOferta;
+            $this->cart[$productId]['precio_final'] = $precioFinal;
+
+            // En modo monto se conserva el $ y se recalcula la cantidad (kg);
+            // en modo cantidad no hay monto.
+            if (($this->cart[$productId]['modo'] ?? 'cantidad') === 'monto') {
+                $monto = (float) ($this->cart[$productId]['monto_pesos'] ?? 0);
+                if ($monto > 0 && $precioFinal > 0) {
+                    $this->cart[$productId]['cantidad'] = round($monto / $precioFinal, 2);
+                }
+            } else {
+                $this->cart[$productId]['monto_pesos'] = null;
+            }
+        }
+    }
+
+    public function toggleNuevoCliente()
+    {
+        $this->showNuevoCliente = ! $this->showNuevoCliente;
+        $this->resetValidation(['nuevoNombre', 'nuevoApellido', 'nuevoTelefono', 'nuevoCorreo']);
+    }
+
+    /**
+     * Registra un cliente de mostrador desde el modal de Crear Orden y lo deja
+     * seleccionado. Si no se da correo, se genera un placeholder @carniceria.local
+     * (el cliente no entra a la tienda; solo sirve para ventas y precios especiales).
+     */
+    public function guardarNuevoCliente()
+    {
+        $this->validate([
+            'nuevoNombre' => ['required', 'string', 'max:100'],
+            'nuevoApellido' => ['required', 'string', 'max:100'],
+            'nuevoTelefono' => ['nullable', 'string', 'max:20'],
+            'nuevoCorreo' => ['nullable', 'email', 'max:150', 'unique:customers,correo'],
+        ], [], [
+            'nuevoNombre' => 'nombre',
+            'nuevoApellido' => 'apellido',
+            'nuevoTelefono' => 'teléfono',
+            'nuevoCorreo' => 'correo',
+        ]);
+
+        try {
+            $correo = trim((string) $this->nuevoCorreo);
+            if ($correo === '') {
+                $correo = 'mostrador_' . now()->format('YmdHis') . Str::lower(Str::random(4)) . '@carniceria.local';
+            }
+
+            $customer = Customers::create([
+                'nombre' => trim($this->nuevoNombre),
+                'apellido' => trim($this->nuevoApellido),
+                'correo' => $correo,
+                'telefono' => $this->nuevoTelefono ? trim($this->nuevoTelefono) : null,
+                'password' => Hash::make(Str::random(32)),
+                'estatus' => 'activo',
+                'fecha_registro' => now(),
+            ]);
+
+            $this->createCustomerId = (string) $customer->id;
+            $this->showNuevoCliente = false;
+            $this->nuevoNombre = $this->nuevoApellido = $this->nuevoTelefono = $this->nuevoCorreo = '';
+
+            $this->updatedCreateCustomerId();
+            $this->emit('despacho-updated', 'Cliente registrado y seleccionado');
+        } catch (Throwable $e) {
+            Log::error('Error al registrar cliente de mostrador', ['error' => $e->getMessage()]);
+            $this->emit('despacho-error', 'No se pudo registrar el cliente');
+        }
+    }
+
     public function addProductToCart($productId)
     {
         $product = Product::find($productId);
@@ -133,8 +245,9 @@ class DespachosController extends Component
             return;
         }
 
-        $precioUnitario = (float) $product->precio;
-        $precioOferta = $product->en_oferta ? (float) $product->precio_oferta : null;
+        // Precio para el cliente del pedido: especial si lo tiene, si no lista/oferta.
+        ['precio_unitario' => $precioUnitario, 'precio_oferta' => $precioOferta]
+            = app(PricingService::class)->precioParaCliente($product, $this->clientePedidoId());
         $precioFinal = $precioOferta ?? $precioUnitario;
 
         // Si ya estaba en el carrito vendiendose por monto, se mantiene el modo
@@ -404,6 +517,11 @@ class DespachosController extends Component
         $this->createDescuento = 0;
         $this->productSearch = '';
         $this->cart = [];
+        $this->showNuevoCliente = false;
+        $this->nuevoNombre = '';
+        $this->nuevoApellido = '';
+        $this->nuevoTelefono = '';
+        $this->nuevoCorreo = '';
     }
 
     public function openModal($saleId)
@@ -728,8 +846,9 @@ class DespachosController extends Component
                 throw new \RuntimeException('Producto no disponible: ' . ($item['nombre'] ?? 'N/A'));
             }
 
-            $precioUnitario = (float) $product->precio;
-            $precioOferta = $product->en_oferta ? (float) $product->precio_oferta : null;
+            // Precio fresco de la BD, con precio especial del cliente si aplica.
+            ['precio_unitario' => $precioUnitario, 'precio_oferta' => $precioOferta]
+                = app(PricingService::class)->precioParaCliente($product, $this->clientePedidoId());
             $precioFinal = $precioOferta ?? $precioUnitario;
 
             // El precio SIEMPRE se toma fresco de la BD (nunca del carrito en sesion),

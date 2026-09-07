@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleDetail;
 use App\Services\InventoryService;
+use App\Services\PricingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -119,9 +120,10 @@ class MercadoPagoController extends Controller
                     throw new \Exception("El producto {$product->nombre} no está disponible");
                 }
 
-                $precioUnitario = $product->en_oferta && $product->precio_oferta
-                    ? floatval($product->precio_oferta)
-                    : floatval($product->precio);
+                // Precio para el cliente autenticado: especial si lo tiene, si no lista/oferta.
+                ['precio_unitario' => $precioBaseUnitario, 'precio_oferta' => $precioOfertaDetalle]
+                    = app(PricingService::class)->precioParaCliente($product, (int) $request->customer_id);
+                $precioUnitario = $precioOfertaDetalle ?? $precioBaseUnitario;
 
                 Log::info("💰 Precio unitario: \${$precioUnitario}");
 
@@ -156,8 +158,8 @@ class MercadoPagoController extends Controller
                         'product_id' => $product->id,
                         'cantidad' => $cantidadEquivalente,
                         'monto_pesos' => $montoPesos,
-                        'precio_unitario' => $product->precio,
-                        'precio_oferta' => $product->en_oferta ? $product->precio_oferta : null,
+                        'precio_unitario' => $precioBaseUnitario,
+                        'precio_oferta' => $precioOfertaDetalle,
                         'subtotal' => $montoPesos,
                         'producto_nombre' => $product->nombre,
                         'producto_codigo' => $product->codigo,
@@ -198,8 +200,8 @@ class MercadoPagoController extends Controller
                         'product_id' => $product->id,
                         'cantidad' => $cantidad,
                         'monto_pesos' => null,
-                        'precio_unitario' => $product->precio,
-                        'precio_oferta' => $product->en_oferta ? $product->precio_oferta : null,
+                        'precio_unitario' => $precioBaseUnitario,
+                        'precio_oferta' => $precioOfertaDetalle,
                         'subtotal' => $itemSubtotal,
                         'producto_nombre' => $product->nombre,
                         'producto_codigo' => $product->codigo,

@@ -26,7 +26,40 @@
                                             <option value="{{ $customer->id }}">{{ $customer->nombre }} {{ $customer->apellido }}</option>
                                         @endforeach
                                     </select>
+                                    <a href="javascript:void(0)" wire:click="toggleNuevoCliente" class="small">
+                                        <i class="fas fa-plus"></i> {{ $showNuevoCliente ? 'Cancelar' : 'Nuevo cliente' }}
+                                    </a>
                                 </div>
+
+                                @if($showNuevoCliente)
+                                    <div class="border rounded p-2 mb-3 bg-light">
+                                        <div class="form-row">
+                                            <div class="form-group col-6 mb-2">
+                                                <label class="mb-1">Nombre *</label>
+                                                <input type="text" wire:model.lazy="nuevoNombre" class="form-control form-control-sm">
+                                                @error('nuevoNombre') <span class="text-danger er">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="form-group col-6 mb-2">
+                                                <label class="mb-1">Apellido *</label>
+                                                <input type="text" wire:model.lazy="nuevoApellido" class="form-control form-control-sm">
+                                                @error('nuevoApellido') <span class="text-danger er">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="form-group col-6 mb-2">
+                                                <label class="mb-1">Teléfono</label>
+                                                <input type="text" wire:model.lazy="nuevoTelefono" class="form-control form-control-sm">
+                                                @error('nuevoTelefono') <span class="text-danger er">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="form-group col-6 mb-2">
+                                                <label class="mb-1">Correo (opcional)</label>
+                                                <input type="email" wire:model.lazy="nuevoCorreo" class="form-control form-control-sm">
+                                                @error('nuevoCorreo') <span class="text-danger er">{{ $message }}</span> @enderror
+                                            </div>
+                                        </div>
+                                        <button type="button" wire:click.prevent="guardarNuevoCliente" class="btn btn-sm btn-success">
+                                            <i class="fas fa-user-plus"></i> Registrar y seleccionar
+                                        </button>
+                                    </div>
+                                @endif
 
                                 <div class="form-group">
                                     <label>Método de pago</label>

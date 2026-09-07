@@ -9,6 +9,7 @@ use App\Http\Livewire\Despachos\DespachosController;
 use App\Http\Livewire\Logs\LogsController;
 use App\Http\Livewire\Notificaciones\NotificacionesController;
 use App\Http\Livewire\PermisosController;
+use App\Http\Livewire\PreciosEspeciales\PreciosEspecialesController;
 use App\Http\Livewire\Productos\ProductosController;
 use App\Http\Livewire\RolesController;
 use App\Http\Livewire\UsersController;
@@ -42,6 +43,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('clientes')->group(function () {
         Route::get('/', ClientesController::class);
         Route::get('despachos', DespachosController::class);
+        Route::get('precios-especiales', PreciosEspecialesController::class)->middleware('role:Admin');
     });
 
     Route::prefix('sistema')->group(function () {
