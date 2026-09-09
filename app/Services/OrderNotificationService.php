@@ -44,7 +44,7 @@ class OrderNotificationService
     {
         $configs = [
             'Procesando' => [
-                'subject' => 'Tu pedido está siendo procesado - Carnicería Franco',
+                'subject' => 'Tu pedido está siendo procesado - Carnicería Franko',
                 'title' => 'Tu pedido está siendo procesado',
                 'status_display' => 'Procesando',
                 'message' => 'Estimado cliente, te informamos que hemos recibido tu pedido y nuestro equipo ha comenzado a procesarlo. Estamos preparando cuidadosamente todos los productos que solicitaste para garantizar la mejor calidad.',
@@ -54,7 +54,7 @@ class OrderNotificationService
                 'estimated_time' => 'Tiempo estimado de preparación: 30-60 minutos'
             ],
             'Listo_para_enviar' => [
-                'subject' => 'Tu pedido está listo para envío - Carnicería Franco',
+                'subject' => 'Tu pedido está listo para envío - Carnicería Franko',
                 'title' => 'Tu pedido está listo para envío',
                 'status_display' => 'Listo para envío',
                 'message' => 'Nos complace informarte que tu pedido ha sido completamente procesado y empacado. Todos los productos han sido cuidadosamente seleccionados y están listos en perfectas condiciones para su envío.',
@@ -64,7 +64,7 @@ class OrderNotificationService
                 'estimated_time' => 'Tiempo estimado de envío: 15-30 minutos'
             ],
             'Enviado' => [
-                'subject' => 'Tu pedido está en camino - Carnicería Franco',
+                'subject' => 'Tu pedido está en camino - Carnicería Franko',
                 'title' => 'Tu pedido está en camino',
                 'status_display' => 'En camino',
                 'message' => 'Tu pedido ha salido de nuestro establecimiento y se encuentra en camino hacia la dirección que nos proporcionaste. Nuestro repartidor se dirigirá directamente a tu domicilio.',
@@ -74,10 +74,10 @@ class OrderNotificationService
                 'estimated_time' => 'El tiempo de llegada dependerá de la distancia y las condiciones del tráfico'
             ],
             'completada' => [
-                'subject' => 'Confirmación de compra - Carnicería Franco',
+                'subject' => 'Confirmación de compra - Carnicería Franko',
                 'title' => 'Compra realizada exitosamente',
                 'status_display' => 'Compra completada',
-                'message' => 'Gracias por elegir Carnicería Franco. Tu compra ha sido procesada exitosamente. A continuación encontrarás el detalle completo de tu pedido para tu referencia.',
+                'message' => 'Gracias por elegir Carnicería Franko. Tu compra ha sido procesada exitosamente. A continuación encontrarás el detalle completo de tu pedido para tu referencia.',
                 'color' => '#28a745',
                 'icon' => '',
                 'next_step' => 'Conserva este correo como comprobante de tu compra.',

@@ -53,7 +53,7 @@
     @if($cancelledWatermark)
         <div class="cancelled-watermark">{{ $cancelledWatermark }}</div>
     @endif
-    <div class="footer">Carnicería Franco · Recibo de recepción de productos</div>
+    <div class="footer">Carnicería Franko · Recibo de recepción de productos</div>
 
     <div class="header">
         <table class="header-table">
@@ -62,7 +62,7 @@
                     @if($logoData)<img src="{{ $logoData }}" class="logo" alt="Logo">@endif
                 </td>
                 <td class="company">
-                    <h1>Carnicería Franco</h1>
+                    <h1>Carnicería Franko</h1>
                     <p>Av. Narciso Bassols 10, 3 de Mayo</p>
                     <p>60990 La Orilla, Mich.</p>
                 </td>

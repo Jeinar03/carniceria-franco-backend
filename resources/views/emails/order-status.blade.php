@@ -267,7 +267,7 @@
         <!-- Header -->
         <div class="header">
             <h1>{{ $config['title'] }}</h1>
-            <div class="company-name">Carnicería Franco</div>
+            <div class="company-name">Carnicería Franko</div>
             <div class="status-badge">{{ $config['status_display'] }}</div>
         </div>
 
@@ -350,7 +350,7 @@
 
         <!-- Footer -->
         <div class="footer">
-            <div class="footer-logo">{{ config('app.name') }}</div>
+            <div class="footer-logo">Carnicería Franko</div>
             <div class="footer-text">
                 Gracias por confiar en nosotros para la compra de productos cárnicos y alimentos frescos de la mejor calidad.
             </div>

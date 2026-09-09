@@ -52,7 +52,7 @@
                     </a>
 
                     <span class="text company-text d-none d-md-inline ml-2">
-                        CARNICERIA FRANCO
+                        CARNICERIA FRANKO
                     </span>
                 </div>
 

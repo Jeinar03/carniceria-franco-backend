@@ -31,7 +31,7 @@ class OrderStatusMail extends Mailable
      */
     public function build()
     {
-        return $this->from(config('mail.from.address'), config('app.name'))
+        return $this->from(config('mail.from.address'), 'Carnicería Franko')
                     ->subject($this->statusConfig['subject'])
                     ->view('emails.order-status')
                     ->with([

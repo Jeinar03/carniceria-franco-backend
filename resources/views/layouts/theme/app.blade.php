@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no">
-    <title>Carniceria Franco</title>
+    <title>Carniceria Franko</title>
     <link rel="icon" type="image/x-icon" href="{{ asset('images/logo.jpeg') }}" />
     <script defer src="{{ asset('plugins/cdn/alpinejs/alpine.min.js') }}"></script>
     <script src="{{ asset('assets/js/libs/jquery-3.1.1.min.js') }}"></script>

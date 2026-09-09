@@ -87,12 +87,12 @@
 <body>
     <div class="card">
         <div class="icon-badge">
-            <img src="{{ asset('images/logo.jpeg') }}" alt="Carnicería Franco" class="brand-logo">
+            <img src="{{ asset('images/logo.jpeg') }}" alt="Carnicería Franko" class="brand-logo">
             <span class="status-overlay {{ $success ? 'ok' : 'fail' }}">{{ $success ? '✓' : '!' }}</span>
         </div>
         @if($success)
             <h1>Correo verificado</h1>
-            <p>Tu cuenta en Carnicería Franco ya está confirmada. Puedes regresar a la tienda.</p>
+            <p>Tu cuenta en Carnicería Franko ya está confirmada. Puedes regresar a la tienda.</p>
         @else
             <h1>Enlace inválido o vencido</h1>
             <p>Este enlace de verificación ya no es válido. Inicia sesión en la tienda y solicita que te reenvíen el correo de confirmación.</p>

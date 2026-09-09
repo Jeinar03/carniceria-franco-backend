@@ -53,7 +53,7 @@ class ProductSeeder extends Seeder
                 'category_id'   => $porNombre[$cat],
                 'codigo'        => $codigo,
                 'nombre'        => $nombre,
-                'descripcion'   => $nombre . ' de la Carnicería Franco, calidad garantizada.',
+                'descripcion'   => $nombre . ' de la Carnicería Franko, calidad garantizada.',
                 'precio'        => $precio,
                 'precio_oferta' => $oferta,
                 'en_oferta'     => $enOferta,

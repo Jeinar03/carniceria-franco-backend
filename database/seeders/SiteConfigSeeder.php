@@ -15,7 +15,7 @@ class SiteConfigSeeder extends Seeder
     public function run()
     {
         SiteConfig::create([
-            'nombre'        => 'Carnicería Franco',
+            'nombre'        => 'Carnicería Franko',
             'logo'          => null,
             'direccion'     => 'Av. Lázaro Cárdenas 500, Lázaro Cárdenas, Michoacán',
             'correo'        => 'contacto@carniceriafranco.test',

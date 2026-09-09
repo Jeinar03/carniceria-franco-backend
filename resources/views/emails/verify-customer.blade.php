@@ -105,7 +105,7 @@
     <div class="container">
         <div class="header">
             <h1>Confirma tu correo</h1>
-            <div class="company-name">Carnicería Franco</div>
+            <div class="company-name">Carnicería Franko</div>
         </div>
 
         <div class="content">
@@ -114,7 +114,7 @@
             </div>
 
             <div class="message">
-                Gracias por registrarte en Carnicería Franco. Para activar tu cuenta y confirmar
+                Gracias por registrarte en Carnicería Franko. Para activar tu cuenta y confirmar
                 que este correo es tuyo, da clic en el siguiente botón:
             </div>
 
@@ -131,7 +131,7 @@
         </div>
 
         <div class="footer">
-            <div class="footer-logo">Carnicería Franco</div>
+            <div class="footer-logo">Carnicería Franko</div>
             <div class="footer-disclaimer">
                 Si no creaste esta cuenta, puedes ignorar este correo.
             </div>

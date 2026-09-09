@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no">
-    <title>Carnicería Franco - Login</title>
+    <title>Carnicería Franko - Login</title>
     <link rel="icon" type="image/png" href="{{ asset('images/logo.jpeg') }}" />
     <link href="{{ asset('fonts/quicksand/quicksand.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ asset('bootstrap/css/bootstrap.min.css') }}" rel="stylesheet" type="text/css" />
@@ -22,8 +22,8 @@
                 <div class="form-container">
                     <div class="form-content">
                         <div class="text-center">
-                            <img src="{{ asset('images/logo.jpeg') }}" alt="Logo Carnicería Franco" class="login-logo">
-                            <h1 class="login-title">Carnicería Franco</h1>
+                            <img src="{{ asset('images/logo.jpeg') }}" alt="Logo Carnicería Franko" class="login-logo">
+                            <h1 class="login-title">Carnicería Franko</h1>
                             <p class="login-subtitle">Sistema de Gestión Comercial</p>
                         </div>
 
@@ -61,7 +61,7 @@
                         </form>
 
                         <p class="footer-copy">
-                            © 2025 Carnicería Franco. Todos los derechos reservados.<br>
+                            © 2025 Carnicería Franko. Todos los derechos reservados.<br>
                             Versión 1.0
                         </p>
                     </div>

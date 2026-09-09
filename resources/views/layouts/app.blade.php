@@ -7,8 +7,8 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
     @php
-        $seoTitle = trim($__env->yieldContent('title')) ?: 'Carniceria Franco';
-        $seoDescription = trim($__env->yieldContent('meta_description')) ?: 'Carniceria Franco: carne fresca, productos de calidad y atencion personalizada.';
+        $seoTitle = trim($__env->yieldContent('title')) ?: 'Carniceria Franko';
+        $seoDescription = trim($__env->yieldContent('meta_description')) ?: 'Carniceria Franko: carne fresca, productos de calidad y atencion personalizada.';
         $seoImage = trim($__env->yieldContent('meta_image')) ?: asset('images/logo.jpeg');
         $canonicalUrl = trim($__env->yieldContent('canonical_url')) ?: url()->current();
     @endphp
@@ -21,7 +21,7 @@
     <link rel="icon" type="image/jpeg" href="{{ asset('images/logo.jpeg') }}">
 
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Carniceria Franco">
+    <meta property="og:site_name" content="Carniceria Franko">
     <meta property="og:locale" content="{{ str_replace('_', '-', app()->getLocale()) }}">
     <meta property="og:title" content="{{ $seoTitle }}">
     <meta property="og:description" content="{{ $seoDescription }}">

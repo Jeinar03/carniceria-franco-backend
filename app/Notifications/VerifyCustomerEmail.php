@@ -19,7 +19,7 @@ class VerifyCustomerEmail extends Notification
     public function toMail($notifiable)
     {
         return (new MailMessage)
-            ->subject('Confirma tu correo - Carnicería Franco')
+            ->subject('Confirma tu correo - Carnicería Franko')
             ->view('emails.verify-customer', [
                 'customer' => $notifiable,
                 'url' => $this->verificationUrl($notifiable),
