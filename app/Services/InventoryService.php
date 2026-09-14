@@ -77,6 +77,74 @@ class InventoryService
         );
     }
 
+    /**
+     * Corrige la cantidad de una línea de venta ya despachada (p. ej. el
+     * cajero capturó mal el monto/cantidad). Edita el movimiento de salida
+     * original en lugar de crear uno nuevo, porque sale_detail_id+type+origin
+     * es único por línea; el historial de la corrección queda en
+     * InventoryMovementAudit igual que las ediciones de entradas de compra.
+     */
+    public function adjustSaleExit(SaleDetail $detail, float $newQuantity, ?int $userId = null): ?InventoryMovement
+    {
+        if ($newQuantity <= 0) {
+            throw new InvalidArgumentException('La cantidad debe ser mayor a cero. Para quitar el producto, elimínalo del pedido.');
+        }
+
+        $movementReference = InventoryMovement::where('sale_detail_id', $detail->id)
+            ->where('type', InventoryMovement::TYPE_EXIT)
+            ->where('origin', 'venta')
+            ->first();
+
+        if (!$movementReference) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($movementReference, $detail, $newQuantity, $userId) {
+            $product = Product::whereKey($movementReference->product_id)->lockForUpdate()->firstOrFail();
+            $movement = InventoryMovement::whereKey($movementReference->id)->lockForUpdate()->firstOrFail();
+
+            $oldQuantity = (float) $movement->quantity;
+            $delta = round($newQuantity - $oldQuantity, 3);
+
+            if (abs($delta) < 0.001) {
+                return $movement;
+            }
+
+            if ($delta > 0) {
+                $current = $this->currentStock($product->id);
+                if ($current < $delta) {
+                    throw new InsufficientStockException($product->nombre, $current, $delta);
+                }
+            }
+
+            $folio = $detail->sale->folio ?? ('#' . $detail->sale_id);
+
+            InventoryMovementAudit::create([
+                'inventory_movement_id' => $movement->id,
+                'reception_id' => $movement->reception_id,
+                'action' => 'edited',
+                'old_quantity' => $oldQuantity,
+                'new_quantity' => $newQuantity,
+                'old_unit_cost' => $movement->unit_cost,
+                'new_unit_cost' => $movement->unit_cost,
+                'old_total_cost' => $movement->total_cost,
+                'new_total_cost' => $movement->total_cost,
+                'old_notes' => $movement->notes,
+                'new_notes' => 'Ajuste de pedido ' . $folio . ': cantidad corregida de ' . $oldQuantity . ' a ' . $newQuantity,
+                'user_id' => $userId,
+            ]);
+
+            $movement->update([
+                'quantity' => $newQuantity,
+                'notes' => 'Salida por venta ' . $folio . ' (corregida)',
+            ]);
+
+            $this->recalculateProductBalances($product->id);
+
+            return $movement->fresh();
+        });
+    }
+
     public function editEntry(int $movementId, float $newQuantity, ?string $notes, ?int $userId): InventoryMovement
     {
         if ($newQuantity <= 0) {

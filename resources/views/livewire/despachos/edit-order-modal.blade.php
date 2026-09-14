@@ -1,69 +1,36 @@
-<div wire:ignore.self class="modal fade" id="createOrderModal" tabindex="-1" role="dialog" style="backdrop-filter: blur(10px); z-index: 1210;">
+<div wire:ignore.self class="modal fade" id="editOrderModal" tabindex="-1" role="dialog" style="backdrop-filter: blur(10px); z-index: 1210;">
     <div class="modal-dialog modal-xl" role="document">
         <div class="modal-content">
-            <div class="modal-header bg-success text-white">
+            <div class="modal-header bg-warning text-white">
                 <h5 class="modal-title">
-                    <b>{{ $componentName }}</b> | Crear pedido
+                    <b>{{ $componentName }}</b> | Editar pedido
                 </h5>
             </div>
 
             <div class="modal-body">
                 <div class="alert alert-light border mb-3">
-                    <strong>Flujo:</strong> 1) Completa los datos del pedido, 2) busca y agrega productos, 3) valida el carrito y guarda.
+                    <strong>Corrige lo que se necesite:</strong> cliente, método de pago, descuento, notas, o las cantidades/montos y productos del carrito. El inventario se ajusta automáticamente.
                 </div>
 
                 <div class="row">
                     <div class="col-lg-5 col-md-12 mb-3">
                         <div class="card h-100">
                             <div class="card-body">
-                                <h6 class="mb-3 section-title"><span class="step-dot">1</span> <i class="fas fa-user"></i> Datos del pedido</h6>
+                                <h6 class="mb-3 section-title"><i class="fas fa-user"></i> Datos del pedido</h6>
 
                                 <div class="form-group">
                                     <label>Cliente</label>
-                                    <select wire:model="createCustomerId" class="form-control">
+                                    <select wire:model="editCustomerId" class="form-control">
                                         <option value="">Cliente General (venta de mostrador)</option>
                                         @foreach($customers as $customer)
                                             <option value="{{ $customer->id }}">{{ $customer->nombre }} {{ $customer->apellido }}</option>
                                         @endforeach
                                     </select>
-                                    <a href="javascript:void(0)" wire:click="toggleNuevoCliente" class="small">
-                                        <i class="fas fa-plus"></i> {{ $showNuevoCliente ? 'Cancelar' : 'Nuevo cliente' }}
-                                    </a>
                                 </div>
-
-                                @if($showNuevoCliente)
-                                    <div class="border rounded p-2 mb-3 bg-light">
-                                        <div class="form-row">
-                                            <div class="form-group col-6 mb-2">
-                                                <label class="mb-1">Nombre *</label>
-                                                <input type="text" wire:model.lazy="nuevoNombre" class="form-control form-control-sm">
-                                                @error('nuevoNombre') <span class="text-danger er">{{ $message }}</span> @enderror
-                                            </div>
-                                            <div class="form-group col-6 mb-2">
-                                                <label class="mb-1">Apellido *</label>
-                                                <input type="text" wire:model.lazy="nuevoApellido" class="form-control form-control-sm">
-                                                @error('nuevoApellido') <span class="text-danger er">{{ $message }}</span> @enderror
-                                            </div>
-                                            <div class="form-group col-6 mb-2">
-                                                <label class="mb-1">Teléfono</label>
-                                                <input type="text" wire:model.lazy="nuevoTelefono" class="form-control form-control-sm">
-                                                @error('nuevoTelefono') <span class="text-danger er">{{ $message }}</span> @enderror
-                                            </div>
-                                            <div class="form-group col-6 mb-2">
-                                                <label class="mb-1">Correo (opcional)</label>
-                                                <input type="email" wire:model.lazy="nuevoCorreo" class="form-control form-control-sm">
-                                                @error('nuevoCorreo') <span class="text-danger er">{{ $message }}</span> @enderror
-                                            </div>
-                                        </div>
-                                        <button type="button" wire:click.prevent="guardarNuevoCliente" class="btn btn-sm btn-success">
-                                            <i class="fas fa-user-plus"></i> Registrar y seleccionar
-                                        </button>
-                                    </div>
-                                @endif
 
                                 <div class="form-group">
                                     <label>Método de pago</label>
-                                    <select wire:model="createMetodoPago" class="form-control">
+                                    <select wire:model="editMetodoPago" class="form-control">
                                         <option value="efectivo">Efectivo</option>
                                         <option value="tarjeta">Tarjeta</option>
                                         <option value="transferencia">Transferencia</option>
@@ -73,18 +40,18 @@
 
                                 <div class="form-group">
                                     <label>Descuento</label>
-                                    <input type="number" min="0" step="0.01" wire:model="createDescuento" class="form-control" placeholder="0.00">
+                                    <input type="number" min="0" step="0.01" wire:model="editDescuento" class="form-control" placeholder="0.00">
                                 </div>
 
                                 <div class="form-group">
                                     <label>Fecha de entrega</label>
-                                    <input type="date" wire:model="createFechaEntrega" class="form-control">
-                                    <small class="text-muted d-block mt-1">Déjalo vacío para entrega inmediata (hoy). Si el pedido es para un día posterior, aparecerá en la pestaña "Pedidos Programados".</small>
+                                    <input type="date" wire:model="editFechaEntrega" class="form-control">
+                                    <small class="text-muted d-block mt-1">Déjalo vacío para entrega inmediata (hoy). Con una fecha posterior, el pedido se mueve a "Pedidos Programados".</small>
                                 </div>
 
                                 <div class="form-group mb-0">
                                     <label>Notas</label>
-                                    <textarea wire:model="createNotas" class="form-control" rows="3" placeholder="Notas internas del pedido..."></textarea>
+                                    <textarea wire:model="editNotas" class="form-control" rows="3" placeholder="Notas internas del pedido..."></textarea>
                                 </div>
                             </div>
                         </div>
@@ -93,14 +60,14 @@
                     <div class="col-lg-7 col-md-12 mb-3">
                         <div class="card h-100">
                             <div class="card-body">
-                                <h6 class="mb-3 section-title"><span class="step-dot">2</span> <i class="fas fa-search"></i> Buscar productos</h6>
+                                <h6 class="mb-3 section-title"><i class="fas fa-search"></i> Agregar productos</h6>
 
                                 <div class="form-group">
                                     <input type="text"
-                                           wire:model.debounce.300ms="productSearch"
+                                           wire:model.debounce.300ms="editProductSearch"
                                            class="form-control"
                                            placeholder="Buscar por código o nombre...">
-                                    <small class="text-muted d-block mt-1">Selecciona productos con el botón + para agregarlos al carrito.</small>
+                                    <small class="text-muted d-block mt-1">Selecciona productos con el botón + para agregarlos al pedido.</small>
                                 </div>
 
                                 <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
@@ -115,7 +82,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @forelse($products as $product)
+                                            @forelse($editProducts as $product)
                                                 @php
                                                     $price = $product->en_oferta ? $product->precio_oferta : $product->precio;
                                                 @endphp
@@ -134,14 +101,14 @@
                                                     </td>
                                                     <td class="text-center">
                                                         <button class="btn btn-sm btn-outline-primary"
-                                                                wire:click="addProductToCart({{ $product->id }})"
+                                                                wire:click="addProductToEditCart({{ $product->id }})"
                                                                 wire:loading.attr="disabled"
-                                                                wire:target="addProductToCart({{ $product->id }})"
+                                                                wire:target="addProductToEditCart({{ $product->id }})"
                                                                 {{ $product->stock <= 0 ? 'disabled' : '' }}>
-                                                            <span wire:loading.remove wire:target="addProductToCart({{ $product->id }})">
+                                                            <span wire:loading.remove wire:target="addProductToEditCart({{ $product->id }})">
                                                                 <i class="fas fa-plus"></i>
                                                             </span>
-                                                            <span wire:loading wire:target="addProductToCart({{ $product->id }})">
+                                                            <span wire:loading wire:target="addProductToEditCart({{ $product->id }})">
                                                                 <i class="fas fa-spinner fa-spin"></i>
                                                             </span>
                                                         </button>
@@ -163,11 +130,11 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0 section-title"><span class="step-dot">3</span> <i class="fas fa-shopping-cart"></i> Carrito</h6>
-                            <span class="badge badge-info">{{ $this->cartProductsCount }} unidades</span>
+                            <h6 class="mb-0 section-title"><i class="fas fa-shopping-cart"></i> Productos del pedido</h6>
+                            <span class="badge badge-info">{{ $this->editCartProductsCount }} unidades</span>
                         </div>
 
-                        <div class="table-responsive {{ count($cart) >= 4 ? 'cart-table-scroll' : '' }}">
+                        <div class="table-responsive {{ count($editCart) >= 4 ? 'cart-table-scroll' : '' }}">
                             <table class="table table-bordered table-sm mb-0">
                                 <thead style="background: #3B3F5C; color: #fff; position: sticky; top: 0; z-index: 1;">
                                     <tr>
@@ -179,7 +146,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($cart as $item)
+                                    @forelse($editCart as $item)
                                         <tr>
                                             <td>
                                                 <strong>{{ $item['nombre'] }}</strong>
@@ -191,10 +158,10 @@
                                                     <div class="btn-group btn-group-sm btn-block mb-1" role="group">
                                                         <button type="button"
                                                                 class="btn {{ ($item['modo'] ?? 'cantidad') === 'cantidad' ? 'btn-secondary' : 'btn-outline-secondary' }}"
-                                                                wire:click="setModoVenta({{ $item['product_id'] }}, 'cantidad')">Kg</button>
+                                                                wire:click="setEditModoVenta({{ $item['product_id'] }}, 'cantidad')">Kg</button>
                                                         <button type="button"
                                                                 class="btn {{ ($item['modo'] ?? 'cantidad') === 'monto' ? 'btn-secondary' : 'btn-outline-secondary' }}"
-                                                                wire:click="setModoVenta({{ $item['product_id'] }}, 'monto')">$</button>
+                                                                wire:click="setEditModoVenta({{ $item['product_id'] }}, 'monto')">$</button>
                                                     </div>
                                                 @endif
 
@@ -208,22 +175,22 @@
                                                                step="0.01"
                                                                class="form-control text-center"
                                                                value="{{ $item['monto_pesos'] }}"
-                                                               wire:change="updateMontoPesos({{ $item['product_id'] }}, $event.target.value)">
+                                                               wire:change="updateEditMontoPesos({{ $item['product_id'] }}, $event.target.value)">
                                                     </div>
                                                     <small class="text-muted d-block mt-1">&asymp; {{ number_format($item['cantidad'], 2) }} kg</small>
                                                 @else
                                                     <div class="input-group input-group-sm">
                                                         <div class="input-group-prepend">
-                                                            <button class="btn btn-outline-secondary" wire:click="decreaseQty({{ $item['product_id'] }})">-</button>
+                                                            <button class="btn btn-outline-secondary" wire:click="decreaseEditQty({{ $item['product_id'] }})">-</button>
                                                         </div>
                                                         <input type="number"
                                                                min="0"
                                                                step="0.01"
                                                                class="form-control text-center"
                                                                value="{{ $item['cantidad'] }}"
-                                                               wire:change="updateQty({{ $item['product_id'] }}, $event.target.value)">
+                                                               wire:change="updateEditQty({{ $item['product_id'] }}, $event.target.value)">
                                                         <div class="input-group-append">
-                                                            <button class="btn btn-outline-secondary" wire:click="increaseQty({{ $item['product_id'] }})">+</button>
+                                                            <button class="btn btn-outline-secondary" wire:click="increaseEditQty({{ $item['product_id'] }})">+</button>
                                                         </div>
                                                     </div>
                                                 @endif
@@ -237,14 +204,14 @@
                                                 @endif
                                             </td>
                                             <td class="text-center">
-                                                <button class="btn btn-sm btn-outline-danger" wire:click="removeFromCart({{ $item['product_id'] }})">
+                                                <button class="btn btn-sm btn-outline-danger" wire:click="removeFromEditCart({{ $item['product_id'] }})">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="5" class="text-center text-muted">No hay productos agregados.</td>
+                                            <td colspan="5" class="text-center text-muted">No hay productos en el pedido.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -256,16 +223,16 @@
                             <div class="col-md-4">
                                 <div class="d-flex justify-content-between">
                                     <span>Subtotal:</span>
-                                    <strong>${{ number_format($this->cartSubtotal, 2) }}</strong>
+                                    <strong>${{ number_format($this->editCartSubtotal, 2) }}</strong>
                                 </div>
                                 <div class="d-flex justify-content-between">
                                     <span>Descuento:</span>
-                                    <strong>-${{ number_format(max(0, (float)$createDescuento), 2) }}</strong>
+                                    <strong>-${{ number_format(max(0, (float)$editDescuento), 2) }}</strong>
                                 </div>
                                 <hr>
                                 <div class="d-flex justify-content-between">
                                     <span>Total final:</span>
-                                    <h5 class="mb-0 text-success"><strong>${{ number_format($this->cartTotal, 2) }}</strong></h5>
+                                    <h5 class="mb-0 text-success"><strong>${{ number_format($this->editCartTotal, 2) }}</strong></h5>
                                 </div>
                             </div>
                         </div>
@@ -274,16 +241,16 @@
             </div>
 
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" onclick="confirmCloseCreateOrderModal()">Cerrar</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="confirmCloseEditOrderModal()">Cerrar</button>
                 <button type="button"
-                        class="btn btn-success"
-                        wire:click="createOrder"
+                        class="btn btn-warning"
+                        wire:click="updateOrder"
                         wire:loading.attr="disabled"
-                        wire:target="createOrder">
-                    <span wire:loading.remove wire:target="createOrder">
-                        <i class="fas fa-save"></i> Guardar pedido
+                        wire:target="updateOrder">
+                    <span wire:loading.remove wire:target="updateOrder">
+                        <i class="fas fa-save"></i> Guardar correcciones
                     </span>
-                    <span wire:loading wire:target="createOrder">
+                    <span wire:loading wire:target="updateOrder">
                         <i class="fas fa-spinner fa-spin"></i> Guardando...
                     </span>
                 </button>
@@ -293,44 +260,20 @@
 </div>
 
 <style>
-    #createOrderModal {
+    #editOrderModal {
         z-index: 1210 !important;
     }
 
-    #createOrderModal + .modal-backdrop.show {
+    #editOrderModal + .modal-backdrop.show {
         z-index: 1205 !important;
     }
 
-    #createOrderModal .modal-content {
+    #editOrderModal .modal-content {
         border: 0;
         border-radius: 10px;
     }
 
-    .cart-table-scroll {
-        max-height: 280px;
-        overflow-y: auto;
-        border: 1px solid #e9ecef;
-    }
-
-    .section-title {
-        font-weight: 700;
-        color: #2f3542;
-    }
-
-    .step-dot {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        background: #28a745;
-        color: #fff;
-        font-size: 12px;
-        margin-right: 6px;
-    }
-
-    #createOrderModal .modal-footer {
+    #editOrderModal .modal-footer {
         justify-content: space-between;
     }
 </style>

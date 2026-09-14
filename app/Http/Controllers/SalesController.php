@@ -70,6 +70,7 @@ class SalesController extends Controller
             'productos.*.monto_pesos' => 'nullable|numeric|min:0', // Para venta por monto
             'descuento' => 'nullable|numeric|min:0',
             'notas' => 'nullable|string',
+            'fecha_entrega' => 'nullable|date|after_or_equal:today', // Pedido para un día posterior (opcional)
             'mercadopago_payment_id' => 'nullable|string', // ID del pago de MercadoPago
             'mercadopago_status' => 'nullable|string', // Estado del pago de MercadoPago
         ]);
@@ -149,6 +150,7 @@ class SalesController extends Controller
             $saleData = [
                 'customer_id' => $request->customer_id,
                 'fecha_venta' => now(),
+                'fecha_entrega' => $request->fecha_entrega,
                 'subtotal' => $subtotal,
                 'descuento' => $descuento,
                 'impuestos' => $impuestos,

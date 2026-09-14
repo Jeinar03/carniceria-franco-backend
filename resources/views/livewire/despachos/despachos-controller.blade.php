@@ -8,6 +8,25 @@
             </div>
 
             <div class="widget-content pt-2">
+                <ul class="nav nav-pills mb-3 despachos-tabs">
+                    <li class="nav-item">
+                        <a href="javascript:void(0)"
+                           wire:click="setActiveTab('actual')"
+                           class="nav-link {{ $activeTab === 'actual' ? 'active' : '' }}">
+                            <i class="fas fa-boxes"></i> Despachos
+                            <span class="badge badge-light ml-1">{{ $actualCount }}</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="javascript:void(0)"
+                           wire:click="setActiveTab('programados')"
+                           class="nav-link {{ $activeTab === 'programados' ? 'active' : '' }}">
+                            <i class="fas fa-calendar-alt"></i> Pedidos Programados
+                            <span class="badge badge-warning ml-1">{{ $programadosCount }}</span>
+                        </a>
+                    </li>
+                </ul>
+
                 <div class="card border-0 shadow-sm mb-3 despachos-toolbar">
                     <div class="card-body pb-2">
                         <div class="row align-items-end">
@@ -46,9 +65,15 @@
 
                         <div class="row align-items-center pt-1">
                             <div class="col-md-7 col-sm-12 mb-2 mb-md-0">
-                                <span class="badge badge-warning px-3 py-2">
-                                    <i class="fas fa-exclamation-triangle"></i> Urgente: +3 horas
-                                </span>
+                                @if($activeTab === 'actual')
+                                    <span class="badge badge-warning px-3 py-2">
+                                        <i class="fas fa-exclamation-triangle"></i> Urgente: +3 horas
+                                    </span>
+                                @else
+                                    <span class="badge badge-info px-3 py-2">
+                                        <i class="fas fa-calendar-alt"></i> Pedidos para un día posterior, ordenados por fecha de entrega
+                                    </span>
+                                @endif
                             </div>
                             <div class="col-md-5 col-sm-12 text-md-right text-left">
                                 <button class="btn btn-success"
@@ -119,6 +144,11 @@
                                     </td>
                                     <td class="text-center">
                                         <h6>{{ $venta->fecha_venta->format('d/m/Y H:i') }}</h6>
+                                        @if($venta->fecha_entrega)
+                                            <span class="badge badge-warning badge-sm">
+                                                <i class="fas fa-calendar-alt"></i> Entrega: {{ $venta->fecha_entrega->format('d/m/Y') }}
+                                            </span>
+                                        @endif
                                     </td>
                                     <td class="text-center">
                                         <h6><strong style="color: #28a745;">${{ number_format($venta->total, 2) }}</strong></h6>
@@ -130,9 +160,24 @@
                                         <span class="badge badge-info">{{ $venta->details->count() }} items</span>
                                     </td>
                                     <td class="text-center">
-                                        <h6 class="{{ $isUrgent ? 'text-danger font-weight-bold' : 'text-muted' }}">
-                                            {{ $horasTranscurridas }}h {{ \Carbon\Carbon::parse($venta->fecha_venta)->diffInMinutes(\Carbon\Carbon::now()) % 60 }}m
-                                        </h6>
+                                        @if($activeTab === 'programados')
+                                            @php
+                                                $diasParaEntrega = \Carbon\Carbon::today()->diffInDays($venta->fecha_entrega, false);
+                                            @endphp
+                                            <h6 class="text-muted">
+                                                @if($diasParaEntrega == 0)
+                                                    Hoy
+                                                @elseif($diasParaEntrega == 1)
+                                                    Mañana
+                                                @else
+                                                    en {{ $diasParaEntrega }} días
+                                                @endif
+                                            </h6>
+                                        @else
+                                            <h6 class="{{ $isUrgent ? 'text-danger font-weight-bold' : 'text-muted' }}">
+                                                {{ $horasTranscurridas }}h {{ \Carbon\Carbon::parse($venta->fecha_venta)->diffInMinutes(\Carbon\Carbon::now()) % 60 }}m
+                                            </h6>
+                                        @endif
                                     </td>
                                     <td class="text-center">
                                         @php
@@ -167,12 +212,26 @@
                                                 </span>
                                             </a>
                                         @endif
+
+                                        @if($venta->estatus !== 'cancelada')
+                                            <a href="javascript:void(0)" wire:click="openEditOrderModal({{ $venta->id }})"
+                                                wire:loading.attr="disabled"
+                                                wire:target="openEditOrderModal({{ $venta->id }})"
+                                                class="btn btn-warning btn-rounded mb-2" title="Editar / corregir pedido">
+                                                <span wire:loading.remove wire:target="openEditOrderModal({{ $venta->id }})">
+                                                    <i class="fas fa-edit"></i>
+                                                </span>
+                                                <span wire:loading wire:target="openEditOrderModal({{ $venta->id }})">
+                                                    <i class="fas fa-spinner fa-spin"></i>
+                                                </span>
+                                            </a>
+                                        @endif
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
                                     <td colspan="8" class="text-center text-muted">
-                                        <h5>No hay pedidos pendientes de despacho</h5>
+                                        <h5>{{ $activeTab === 'programados' ? 'No hay pedidos programados para días posteriores' : 'No hay pedidos pendientes de despacho' }}</h5>
                                     </td>
                                 </tr>
                             @endforelse
@@ -194,6 +253,7 @@
     @include('livewire.despachos.modal')
     @include('livewire.despachos.transfer-validation-modal')
     @include('livewire.despachos.create-order-modal')
+    @include('livewire.despachos.edit-order-modal')
 </div>
 
 <style>
@@ -204,6 +264,17 @@
 
     .despachos-toolbar {
         border-radius: 10px;
+    }
+
+    .despachos-tabs .nav-link {
+        font-weight: 600;
+        color: #3b3f5c;
+        border-radius: 8px;
+    }
+
+    .despachos-tabs .nav-link.active {
+        background: #3B3F5C;
+        color: #fff;
     }
 
     .filter-label {
@@ -290,6 +361,19 @@
             noty(Msg, 1);
         });
 
+        window.livewire.on('show-edit-order-modal', function() {
+            $('#editOrderModal').modal('show');
+        });
+
+        window.livewire.on('hide-edit-order-modal', function() {
+            $('#editOrderModal').modal('hide');
+        });
+
+        window.livewire.on('pedido-actualizado', Msg => {
+            $('#editOrderModal').modal('hide');
+            noty(Msg, 1);
+        });
+
         $(document).on('hidden.bs.modal', '#theModal', function () {
             window.livewire.emit('despachoModalClosed');
             $('body').removeClass('modal-open');
@@ -304,6 +388,12 @@
 
         $(document).on('hidden.bs.modal', '#transferValidationModal', function () {
             window.livewire.emit('transferValidationModalClosed');
+            $('body').removeClass('modal-open');
+            $('.modal-backdrop').remove();
+        });
+
+        $(document).on('hidden.bs.modal', '#editOrderModal', function () {
+            window.livewire.emit('editOrderModalClosed');
             $('body').removeClass('modal-open');
             $('.modal-backdrop').remove();
         });
@@ -341,6 +431,33 @@
         }
 
         if (confirm('Si cierras ahora, se perderan los productos agregados. ¿Deseas continuar?')) {
+            closeModal();
+        }
+    }
+
+    function confirmCloseEditOrderModal() {
+        const closeModal = () => {
+            window.livewire.emit('hide-edit-order-modal');
+        };
+
+        if (typeof Swal !== 'undefined' && Swal.fire) {
+            Swal.fire({
+                title: 'Cerrar edición',
+                text: 'Se perderán los cambios que no hayas guardado. ¿Deseas continuar?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Si, cerrar',
+                cancelButtonText: 'No, continuar',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    closeModal();
+                }
+            });
+            return;
+        }
+
+        if (confirm('Se perderán los cambios que no hayas guardado. ¿Deseas continuar?')) {
             closeModal();
         }
     }

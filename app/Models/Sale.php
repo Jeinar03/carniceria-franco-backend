@@ -15,6 +15,7 @@ class Sale extends Model
         'customer_id',
         'folio',
         'fecha_venta',
+        'fecha_entrega',
         'subtotal',
         'descuento',
         'impuestos',
@@ -35,6 +36,7 @@ class Sale extends Model
 
     protected $casts = [
         'fecha_venta' => 'datetime',
+        'fecha_entrega' => 'date',
         'subtotal' => 'decimal:2',
         'descuento' => 'decimal:2',
         'impuestos' => 'decimal:2',
@@ -95,6 +97,21 @@ class Sale extends Model
     public function scopeCanceladas($query)
     {
         return $query->where('estatus', 'cancelada');
+    }
+
+    // Scope para pedidos programados a una fecha de entrega futura (posterior a hoy)
+    public function scopeProgramadas($query)
+    {
+        return $query->whereDate('fecha_entrega', '>', now()->toDateString());
+    }
+
+    // Scope para pedidos de entrega inmediata (sin fecha_entrega o ya vencida/hoy)
+    public function scopeEntregaInmediata($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('fecha_entrega')
+                ->orWhereDate('fecha_entrega', '<=', now()->toDateString());
+        });
     }
 
     // Scope para ventas por rango de fechas

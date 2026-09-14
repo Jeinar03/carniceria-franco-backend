@@ -35,11 +35,15 @@ class DespachosController extends Component
     public $transferValidationNote = '';
     public $transferValidationData = [];
 
+    // Pestaña activa: 'actual' (despachos de hoy) o 'programados' (pedidos para un día posterior)
+    public $activeTab = 'actual';
+
     // Crear pedido
     public $createCustomerId = '';
     public $createMetodoPago = 'efectivo';
     public $createNotas = '';
     public $createDescuento = 0;
+    public $createFechaEntrega = '';
     public $productSearch = '';
     public $cart = [];
 
@@ -50,6 +54,16 @@ class DespachosController extends Component
     public $nuevoTelefono = '';
     public $nuevoCorreo = '';
 
+    // Editar pedido ya hecho
+    public $editingSaleId = null;
+    public $editCustomerId = '';
+    public $editMetodoPago = 'efectivo';
+    public $editNotas = '';
+    public $editDescuento = 0;
+    public $editFechaEntrega = '';
+    public $editProductSearch = '';
+    public $editCart = [];
+
     protected $paginationTheme = 'bootstrap';
 
     protected $listeners = [
@@ -59,6 +73,8 @@ class DespachosController extends Component
         'createOrderModalClosed' => 'closeCreateOrderModal',
         'despachoModalClosed' => 'closeModal',
         'transferValidationModalClosed' => 'closeTransferValidationModal',
+        'closeEditOrderModal' => 'closeEditOrderModal',
+        'editOrderModalClosed' => 'closeEditOrderModal',
     ];
 
     public function mount()
@@ -107,6 +123,16 @@ class DespachosController extends Component
         $this->filtroCliente = '';
         $this->filtroFolio = '';
         $this->search = '';
+        $this->resetPage();
+    }
+
+    public function setActiveTab($tab)
+    {
+        if (!in_array($tab, ['actual', 'programados'], true)) {
+            return;
+        }
+
+        $this->activeTab = $tab;
         $this->resetPage();
     }
 
@@ -405,6 +431,7 @@ class DespachosController extends Component
                 $sale = Sale::create([
                     'customer_id' => $this->createCustomerId ?: null,
                     'fecha_venta' => now(),
+                    'fecha_entrega' => $this->createFechaEntrega ?: null,
                     'subtotal' => $subtotal,
                     'descuento' => $descuento,
                     'impuestos' => $impuestos,
@@ -515,6 +542,7 @@ class DespachosController extends Component
         $this->createMetodoPago = 'efectivo';
         $this->createNotas = '';
         $this->createDescuento = 0;
+        $this->createFechaEntrega = '';
         $this->productSearch = '';
         $this->cart = [];
         $this->showNuevoCliente = false;
@@ -522,6 +550,527 @@ class DespachosController extends Component
         $this->nuevoApellido = '';
         $this->nuevoTelefono = '';
         $this->nuevoCorreo = '';
+    }
+
+    /**
+     * Abre el modal de edición de un pedido ya hecho, precargando el carrito
+     * con sus líneas actuales para poder corregir cliente, método de pago,
+     * descuento, notas, y cantidad/monto o productos de cada línea.
+     */
+    public function openEditOrderModal($saleId)
+    {
+        $sale = Sale::with('details.product')->find($saleId);
+
+        if (!$sale) {
+            $this->emit('despacho-error', 'Pedido no encontrado');
+            return;
+        }
+
+        if ($sale->estatus === 'cancelada') {
+            $this->emit('despacho-error', 'No se puede editar un pedido cancelado');
+            return;
+        }
+
+        $this->editingSaleId = $sale->id;
+        $this->editCustomerId = $sale->customer_id ? (string) $sale->customer_id : '';
+        $this->editMetodoPago = $sale->metodo_pago;
+        $this->editNotas = $sale->notas;
+        $this->editDescuento = (float) $sale->descuento;
+        $this->editFechaEntrega = $sale->fecha_entrega ? $sale->fecha_entrega->format('Y-m-d') : '';
+        $this->editProductSearch = '';
+        $this->editCart = [];
+
+        foreach ($sale->details as $detail) {
+            $product = $detail->product;
+            // El stock ya trae descontada esta línea; se le regresa su cantidad
+            // para que el tope de edición sea el stock real disponible.
+            $stockDisponible = $product ? ((float) $product->stock + (float) $detail->cantidad) : (float) $detail->cantidad;
+
+            $this->editCart[$detail->product_id] = [
+                'product_id' => $detail->product_id,
+                'codigo' => $detail->producto_codigo,
+                'nombre' => $detail->producto_nombre,
+                'unidad_venta' => $detail->unidad_venta,
+                'cantidad' => (float) $detail->cantidad,
+                'stock' => $stockDisponible,
+                'precio_unitario' => (float) $detail->precio_unitario,
+                'precio_oferta' => $detail->precio_oferta !== null ? (float) $detail->precio_oferta : null,
+                'precio_final' => $detail->precio_oferta !== null ? (float) $detail->precio_oferta : (float) $detail->precio_unitario,
+                'modo' => $detail->monto_pesos !== null ? 'monto' : 'cantidad',
+                'monto_pesos' => $detail->monto_pesos !== null ? (float) $detail->monto_pesos : null,
+            ];
+        }
+
+        $this->emit('show-edit-order-modal');
+    }
+
+    public function closeEditOrderModal()
+    {
+        $this->editingSaleId = null;
+        $this->editCustomerId = '';
+        $this->editMetodoPago = 'efectivo';
+        $this->editNotas = '';
+        $this->editDescuento = 0;
+        $this->editFechaEntrega = '';
+        $this->editProductSearch = '';
+        $this->editCart = [];
+    }
+
+    public function requestCloseEditOrderModal()
+    {
+        $this->emit('hide-edit-order-modal');
+    }
+
+    public function updatedEditCustomerId()
+    {
+        if (empty($this->editCart)) {
+            return;
+        }
+
+        $customerId = $this->editCustomerId ? (int) $this->editCustomerId : null;
+        $pricing = app(PricingService::class);
+
+        foreach ($this->editCart as $productId => $item) {
+            $product = Product::find($item['product_id']);
+            if (!$product) {
+                unset($this->editCart[$productId]);
+                continue;
+            }
+
+            ['precio_unitario' => $precioUnitario, 'precio_oferta' => $precioOferta]
+                = $pricing->precioParaCliente($product, $customerId);
+            $precioFinal = $precioOferta ?? $precioUnitario;
+
+            $this->editCart[$productId]['precio_unitario'] = $precioUnitario;
+            $this->editCart[$productId]['precio_oferta'] = $precioOferta;
+            $this->editCart[$productId]['precio_final'] = $precioFinal;
+
+            if (($this->editCart[$productId]['modo'] ?? 'cantidad') === 'monto') {
+                $monto = (float) ($this->editCart[$productId]['monto_pesos'] ?? 0);
+                if ($monto > 0 && $precioFinal > 0) {
+                    $this->editCart[$productId]['cantidad'] = round($monto / $precioFinal, 2);
+                }
+            } else {
+                $this->editCart[$productId]['monto_pesos'] = null;
+            }
+        }
+    }
+
+    public function addProductToEditCart($productId)
+    {
+        $product = Product::find($productId);
+
+        if (!$product || !$product->activo) {
+            $this->emit('despacho-error', 'Producto no disponible');
+            return;
+        }
+
+        $currentQty = isset($this->editCart[$productId]) ? (float) $this->editCart[$productId]['cantidad'] : 0;
+        $newQty = $currentQty + 1;
+
+        if ($newQty > (float) $product->stock) {
+            $this->emit('despacho-error', 'Stock insuficiente para ' . $product->nombre);
+            return;
+        }
+
+        $customerId = $this->editCustomerId ? (int) $this->editCustomerId : null;
+        ['precio_unitario' => $precioUnitario, 'precio_oferta' => $precioOferta]
+            = app(PricingService::class)->precioParaCliente($product, $customerId);
+        $precioFinal = $precioOferta ?? $precioUnitario;
+
+        $modo = $this->editCart[$productId]['modo'] ?? 'cantidad';
+        $montoPesos = $modo === 'monto' ? round($precioFinal * $newQty, 2) : null;
+
+        $this->editCart[$productId] = [
+            'product_id' => $product->id,
+            'codigo' => $product->codigo,
+            'nombre' => $product->nombre,
+            'unidad_venta' => $product->unidad_venta,
+            'cantidad' => $newQty,
+            'stock' => (float) $product->stock,
+            'precio_unitario' => $precioUnitario,
+            'precio_oferta' => $precioOferta,
+            'precio_final' => $precioFinal,
+            'modo' => $modo,
+            'monto_pesos' => $montoPesos,
+        ];
+    }
+
+    public function setEditModoVenta($productId, $modo)
+    {
+        if (!isset($this->editCart[$productId]) || !in_array($modo, ['cantidad', 'monto'], true)) {
+            return;
+        }
+
+        if ($modo === 'monto' && $this->editCart[$productId]['unidad_venta'] !== 'kilogramo') {
+            return;
+        }
+
+        $this->editCart[$productId]['modo'] = $modo;
+
+        if ($modo === 'monto' && empty($this->editCart[$productId]['monto_pesos'])) {
+            $precioFinal = (float) $this->editCart[$productId]['precio_final'];
+            $cantidad = (float) $this->editCart[$productId]['cantidad'];
+            $this->editCart[$productId]['monto_pesos'] = round($precioFinal * $cantidad, 2) ?: round($precioFinal, 2);
+        }
+    }
+
+    public function updateEditMontoPesos($productId, $value)
+    {
+        if (!isset($this->editCart[$productId]) || ($this->editCart[$productId]['modo'] ?? 'cantidad') !== 'monto') {
+            return;
+        }
+
+        $monto = (float) $value;
+        if ($monto <= 0) {
+            $this->emit('despacho-error', 'El monto debe ser mayor a 0');
+            return;
+        }
+
+        $precioFinal = (float) $this->editCart[$productId]['precio_final'];
+        if ($precioFinal <= 0) {
+            return;
+        }
+
+        $stock = (float) $this->editCart[$productId]['stock'];
+        $cantidadCalculada = round($monto / $precioFinal, 2);
+
+        if ($cantidadCalculada > $stock) {
+            $montoMaximo = round($stock * $precioFinal, 2);
+            $this->emit('despacho-error', 'Ese monto excede el stock de ' . $this->editCart[$productId]['nombre'] . ' (max. $' . number_format($montoMaximo, 2) . ')');
+            $cantidadCalculada = $stock;
+            $monto = $montoMaximo;
+        }
+
+        $this->editCart[$productId]['monto_pesos'] = $monto;
+        $this->editCart[$productId]['cantidad'] = $cantidadCalculada;
+    }
+
+    public function increaseEditQty($productId)
+    {
+        if (!isset($this->editCart[$productId]) || ($this->editCart[$productId]['modo'] ?? 'cantidad') === 'monto') {
+            return;
+        }
+
+        $newQty = (float) $this->editCart[$productId]['cantidad'] + 1;
+        if ($newQty > (float) $this->editCart[$productId]['stock']) {
+            $this->emit('despacho-error', 'Stock insuficiente para ' . $this->editCart[$productId]['nombre']);
+            return;
+        }
+
+        $this->editCart[$productId]['cantidad'] = $newQty;
+    }
+
+    public function decreaseEditQty($productId)
+    {
+        if (!isset($this->editCart[$productId]) || ($this->editCart[$productId]['modo'] ?? 'cantidad') === 'monto') {
+            return;
+        }
+
+        $newQty = (float) $this->editCart[$productId]['cantidad'] - 1;
+        if ($newQty <= 0) {
+            unset($this->editCart[$productId]);
+            return;
+        }
+
+        $this->editCart[$productId]['cantidad'] = $newQty;
+    }
+
+    public function updateEditQty($productId, $value)
+    {
+        if (!isset($this->editCart[$productId]) || ($this->editCart[$productId]['modo'] ?? 'cantidad') === 'monto') {
+            return;
+        }
+
+        $qty = (float) $value;
+        if ($qty <= 0) {
+            unset($this->editCart[$productId]);
+            return;
+        }
+
+        if ($qty > (float) $this->editCart[$productId]['stock']) {
+            $this->emit('despacho-error', 'Stock insuficiente para ' . $this->editCart[$productId]['nombre']);
+            $this->editCart[$productId]['cantidad'] = (float) $this->editCart[$productId]['stock'];
+            return;
+        }
+
+        $this->editCart[$productId]['cantidad'] = $qty;
+    }
+
+    public function removeFromEditCart($productId)
+    {
+        unset($this->editCart[$productId]);
+    }
+
+    public function getEditCartProductsCountProperty()
+    {
+        return array_sum(array_map(function ($item) {
+            return (float) ($item['cantidad'] ?? 0);
+        }, $this->editCart));
+    }
+
+    public function getEditCartSubtotalProperty()
+    {
+        $subtotal = 0;
+        foreach ($this->editCart as $item) {
+            if (($item['modo'] ?? 'cantidad') === 'monto') {
+                $subtotal += (float) ($item['monto_pesos'] ?? 0);
+            } else {
+                $subtotal += ((float) $item['precio_final']) * ((float) $item['cantidad']);
+            }
+        }
+
+        return $subtotal;
+    }
+
+    public function getEditCartTotalProperty()
+    {
+        $discount = max(0, (float) ($this->editDescuento ?? 0));
+        return max(0, $this->editCartSubtotal - $discount);
+    }
+
+    /**
+     * Guarda las correcciones de un pedido ya hecho: agrega/quita productos,
+     * ajusta cantidades/montos, cliente, método de pago, descuento y notas.
+     * El inventario se ajusta línea por línea (no se recrea desde cero) para
+     * mantener el historial de movimientos consistente.
+     */
+    public function updateOrder()
+    {
+        if (!$this->editingSaleId) {
+            $this->emit('despacho-error', 'No hay un pedido seleccionado para editar');
+            return;
+        }
+
+        $validationError = $this->validateEditOrderInputs();
+        if ($validationError !== null) {
+            $this->emit('despacho-error', $validationError);
+            return;
+        }
+
+        try {
+            DB::transaction(function () {
+                $sale = Sale::with('details')->lockForUpdate()->findOrFail($this->editingSaleId);
+
+                if ($sale->estatus === 'cancelada') {
+                    throw new \RuntimeException('No se puede editar un pedido cancelado');
+                }
+
+                $totalAnterior = (float) $sale->total;
+                $clienteAnteriorId = $sale->customer_id;
+
+                $existingDetails = $sale->details->keyBy('product_id');
+
+                [$subtotal, $detalles] = $this->resolveEditOrderDetails($existingDetails);
+
+                $descuento = max(0, (float) ($this->editDescuento ?? 0));
+                if ($descuento > $subtotal) {
+                    $descuento = $subtotal;
+                }
+                $total = $subtotal - $descuento;
+
+                $inventory = app(InventoryService::class);
+                $newProductIds = collect($detalles)->map(fn ($d) => $d['product']->id)->all();
+
+                // 1) Líneas que ya no están: reintegrar stock y borrar el detalle.
+                foreach ($existingDetails as $productId => $detail) {
+                    if (!in_array($productId, $newProductIds, true)) {
+                        $product = Product::find($productId);
+                        if ($product) {
+                            $inventory->restoreCancelledSale($product, $detail, auth()->id());
+                        }
+                        $detail->delete();
+                    }
+                }
+
+                // 2) Crear o actualizar líneas.
+                foreach ($detalles as $detalle) {
+                    $product = $detalle['product'];
+                    $existing = $existingDetails->get($product->id);
+
+                    if ($existing) {
+                        $inventory->adjustSaleExit($existing, $detalle['cantidad'], auth()->id());
+
+                        $existing->update([
+                            'cantidad' => $detalle['cantidad'],
+                            'monto_pesos' => $detalle['monto_pesos'],
+                            'precio_unitario' => $detalle['precio_unitario'],
+                            'precio_oferta' => $detalle['precio_oferta'],
+                            'subtotal' => $detalle['subtotal'],
+                            'total' => $detalle['subtotal'],
+                        ]);
+                    } else {
+                        $saleDetail = SaleDetail::create([
+                            'sale_id' => $sale->id,
+                            'product_id' => $product->id,
+                            'cantidad' => $detalle['cantidad'],
+                            'monto_pesos' => $detalle['monto_pesos'],
+                            'precio_unitario' => $detalle['precio_unitario'],
+                            'precio_oferta' => $detalle['precio_oferta'],
+                            'descuento' => 0,
+                            'subtotal' => $detalle['subtotal'],
+                            'total' => $detalle['subtotal'],
+                            'producto_nombre' => $product->nombre,
+                            'producto_codigo' => $product->codigo,
+                            'unidad_venta' => $product->unidad_venta,
+                            'estado_despacho' => 0,
+                        ]);
+
+                        $inventory->addSaleExit($product, $saleDetail, auth()->id());
+                    }
+                }
+
+                // 3) Cabecera del pedido.
+                $nuevoCustomerId = $this->editCustomerId ?: null;
+                $sale->customer_id = $nuevoCustomerId;
+                $sale->metodo_pago = $this->editMetodoPago;
+                $sale->notas = $this->editNotas;
+                $sale->fecha_entrega = $this->editFechaEntrega ?: null;
+                $sale->subtotal = $subtotal;
+                $sale->descuento = $descuento;
+                $sale->total = $total;
+
+                if ($this->editMetodoPago === 'transferencia') {
+                    if ($sale->transferencia_estado !== 'aprobada') {
+                        $sale->transferencia_estado = $sale->transferencia_estado ?: 'pendiente';
+                        $sale->estatus = 'pendiente';
+                    }
+                } else {
+                    $sale->transferencia_estado = null;
+                    $sale->estatus = 'completada';
+                }
+
+                $sale->save();
+
+                // 4) Estadísticas del cliente (si cambió el cliente o el total).
+                if ((string) $clienteAnteriorId !== (string) $nuevoCustomerId) {
+                    if ($clienteAnteriorId) {
+                        $clienteAnterior = Customers::find($clienteAnteriorId);
+                        if ($clienteAnterior) {
+                            $clienteAnterior->total_compras = max(0, (float) ($clienteAnterior->total_compras ?? 0) - $totalAnterior);
+                            $clienteAnterior->numero_compras = max(0, (int) ($clienteAnterior->numero_compras ?? 0) - 1);
+                            $clienteAnterior->save();
+                        }
+                    }
+                    if ($nuevoCustomerId) {
+                        $clienteNuevo = Customers::find($nuevoCustomerId);
+                        if ($clienteNuevo) {
+                            $clienteNuevo->total_compras = (float) ($clienteNuevo->total_compras ?? 0) + $total;
+                            $clienteNuevo->numero_compras = (int) ($clienteNuevo->numero_compras ?? 0) + 1;
+                            $clienteNuevo->fecha_ultima_compra = now();
+                            $clienteNuevo->save();
+                        }
+                    }
+                } elseif ($nuevoCustomerId) {
+                    $cliente = Customers::find($nuevoCustomerId);
+                    if ($cliente) {
+                        $cliente->total_compras = max(0, (float) ($cliente->total_compras ?? 0) - $totalAnterior + $total);
+                        $cliente->save();
+                    }
+                }
+            });
+
+            $this->emit('pedido-actualizado', 'Pedido actualizado correctamente');
+            $this->emit('hide-edit-order-modal');
+            $this->closeEditOrderModal();
+            $this->resetPage();
+        } catch (Throwable $e) {
+            Log::error('Error al editar pedido', [
+                'sale_id' => $this->editingSaleId,
+                'error' => $e->getMessage(),
+            ]);
+            $this->emit('despacho-error', 'Error al editar pedido: ' . $e->getMessage());
+        }
+    }
+
+    private function validateEditOrderInputs(): ?string
+    {
+        if (count($this->editCart) === 0) {
+            return 'El pedido debe tener al menos un producto';
+        }
+
+        if (!in_array($this->editMetodoPago, ['efectivo', 'tarjeta', 'transferencia', 'credito'], true)) {
+            return 'Metodo de pago no valido';
+        }
+
+        if (!$this->editCustomerId && $this->editMetodoPago === 'credito') {
+            return 'Selecciona un cliente para venta a credito';
+        }
+
+        if ($this->editFechaEntrega && $this->editFechaEntrega < now()->toDateString()) {
+            return 'La fecha de entrega no puede ser anterior a hoy';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param \Illuminate\Support\Collection<int, SaleDetail> $existingDetailsByProduct
+     */
+    private function resolveEditOrderDetails($existingDetailsByProduct): array
+    {
+        $subtotal = 0;
+        $detalles = [];
+        $customerId = $this->editCustomerId ? (int) $this->editCustomerId : null;
+
+        foreach ($this->editCart as $item) {
+            $product = Product::find($item['product_id']);
+
+            if (!$product || !$product->activo) {
+                throw new \RuntimeException('Producto no disponible: ' . ($item['nombre'] ?? 'N/A'));
+            }
+
+            ['precio_unitario' => $precioUnitario, 'precio_oferta' => $precioOferta]
+                = app(PricingService::class)->precioParaCliente($product, $customerId);
+            $precioFinal = $precioOferta ?? $precioUnitario;
+
+            $esVentaPorMonto = ($item['modo'] ?? 'cantidad') === 'monto' && $product->unidad_venta === 'kilogramo';
+
+            if ($esVentaPorMonto) {
+                $montoPesos = (float) ($item['monto_pesos'] ?? 0);
+                if ($montoPesos <= 0) {
+                    throw new \RuntimeException('Monto invalido para ' . $product->nombre);
+                }
+                if ($precioFinal <= 0) {
+                    throw new \RuntimeException('Precio invalido para ' . $product->nombre);
+                }
+
+                $qty = round($montoPesos / $precioFinal, 2);
+                $itemSubtotal = $montoPesos;
+            } else {
+                $qty = (float) $item['cantidad'];
+                $montoPesos = null;
+                $itemSubtotal = $precioFinal * $qty;
+            }
+
+            if ($qty <= 0) {
+                throw new \RuntimeException('Cantidad invalida para ' . $product->nombre);
+            }
+
+            // Stock real disponible: el actual + lo que esta línea ya tenía
+            // reservado antes de la edición (si ya existía en el pedido).
+            $yaReservado = $existingDetailsByProduct->has($product->id)
+                ? (float) $existingDetailsByProduct->get($product->id)->cantidad
+                : 0;
+            $stockDisponible = (float) $product->stock + $yaReservado;
+
+            if ($stockDisponible < $qty) {
+                throw new \RuntimeException('Stock insuficiente para ' . $product->nombre . '. Disponible: ' . $stockDisponible);
+            }
+
+            $subtotal += $itemSubtotal;
+
+            $detalles[] = [
+                'product' => $product,
+                'cantidad' => $qty,
+                'monto_pesos' => $montoPesos,
+                'precio_unitario' => $precioUnitario,
+                'precio_oferta' => $precioOferta,
+                'subtotal' => $itemSubtotal,
+            ];
+        }
+
+        return [$subtotal, $detalles];
     }
 
     public function openModal($saleId)
@@ -773,20 +1322,33 @@ class DespachosController extends Component
 
     public function render()
     {
-        $query = Sale::with(['customer', 'details'])
-            ->whereIn('estado_envio', ['Pendiente', 'Procesando', 'Listo_para_enviar'])
-            ->orderBy('fecha_venta', 'asc'); // Más viejas primero
+        $baseQuery = Sale::with(['customer', 'details'])
+            ->whereIn('estado_envio', ['Pendiente', 'Procesando', 'Listo_para_enviar']);
+
+        // Pedidos programados: fecha_entrega en un día posterior a hoy. Se
+        // muestran aparte y no en la lista de despachos del día hasta que llega su fecha.
+        $programadosCount = (clone $baseQuery)->programadas()->count();
+        $actualCount = (clone $baseQuery)->entregaInmediata()->count();
+
+        if ($this->activeTab === 'programados') {
+            $query = (clone $baseQuery)->programadas()->orderBy('fecha_entrega', 'asc');
+        } else {
+            $query = (clone $baseQuery)->entregaInmediata()->orderBy('fecha_venta', 'desc'); // Más recientes primero
+        }
 
         $query = $this->applyFilters($query);
 
         $ventas = $query->paginate((int) $this->perPage);
 
-        // Calcular urgencias (más de 3 horas)
+        // Calcular urgencias (más de 3 horas). Solo aplica a la pestaña de
+        // despachos inmediatos; un pedido programado a futuro no es "urgente".
         $ventasUrgentes = [];
-        foreach ($ventas as $venta) {
-            $horasTranscurridas = Carbon::parse($venta->fecha_venta)->diffInHours(Carbon::now());
-            if ($horasTranscurridas > 3) {
-                $ventasUrgentes[] = $venta->id;
+        if ($this->activeTab !== 'programados') {
+            foreach ($ventas as $venta) {
+                $horasTranscurridas = Carbon::parse($venta->fecha_venta)->diffInHours(Carbon::now());
+                if ($horasTranscurridas > 3) {
+                    $ventasUrgentes[] = $venta->id;
+                }
             }
         }
 
@@ -807,11 +1369,27 @@ class DespachosController extends Component
             ->limit(25)
             ->get(['id', 'codigo', 'nombre', 'precio', 'precio_oferta', 'en_oferta', 'stock', 'unidad_venta']);
 
+        $editProductSearchTerm = trim((string) $this->editProductSearch);
+
+        $editProducts = Product::where('activo', true)
+            ->when($editProductSearchTerm !== '', function ($query) use ($editProductSearchTerm) {
+                $query->where(function ($subQ) use ($editProductSearchTerm) {
+                    $subQ->where('codigo', 'like', '%' . $editProductSearchTerm . '%')
+                        ->orWhere('nombre', 'like', '%' . $editProductSearchTerm . '%');
+                });
+            })
+            ->orderBy('nombre')
+            ->limit(25)
+            ->get(['id', 'codigo', 'nombre', 'precio', 'precio_oferta', 'en_oferta', 'stock', 'unidad_venta']);
+
         return view('livewire.despachos.despachos-controller', [
             'ventas' => $ventas,
             'ventasUrgentes' => $ventasUrgentes,
             'customers' => $customers,
             'products' => $products,
+            'editProducts' => $editProducts,
+            'actualCount' => $actualCount,
+            'programadosCount' => $programadosCount,
         ])->extends('layouts.theme.app')
             ->section('content');
     }
@@ -829,6 +1407,10 @@ class DespachosController extends Component
         // El credito se abona a la cuenta de un cliente real; no aplica a mostrador.
         if (!$this->createCustomerId && $this->createMetodoPago === 'credito') {
             return 'Selecciona un cliente para venta a credito';
+        }
+
+        if ($this->createFechaEntrega && $this->createFechaEntrega < now()->toDateString()) {
+            return 'La fecha de entrega no puede ser anterior a hoy';
         }
 
         return null;
