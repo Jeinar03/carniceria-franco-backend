@@ -61,6 +61,7 @@
                                     <option value="tarjeta">Tarjeta</option>
                                     <option value="transferencia">Transferencia</option>
                                     <option value="credito">Credito</option>
+                                    <option value="mercado_pago">Mercado Pago</option>
                                 </select>
                             </div>
                             <div class="col-xl-2 col-lg-3 col-md-6 col-sm-12 mb-3">
@@ -126,8 +127,12 @@
                                             <span class="badge badge-primary">Tarjeta</span>
                                         @elseif($venta->metodo_pago == 'transferencia')
                                             <span class="badge badge-info">Transferencia</span>
-                                        @else
+                                        @elseif($venta->metodo_pago == 'mercado_pago')
+                                            <span class="badge badge-secondary">Mercado Pago</span>
+                                        @elseif($venta->metodo_pago == 'credito')
                                             <span class="badge badge-warning">Credito</span>
+                                        @else
+                                            <span class="badge badge-light">{{ ucfirst($venta->metodo_pago) }}</span>
                                         @endif
                                     </td>
                                     <td>
