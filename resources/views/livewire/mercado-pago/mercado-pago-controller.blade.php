@@ -73,6 +73,11 @@
                                         {{ $sandbox ? 'Sandbox habilitado' : 'Produccion' }}
                                     </label>
                                 </div>
+                                <small class="text-muted d-block mt-1">
+                                    Solo controla si se omite el correo del cliente en el checkout. Que el pago sea de
+                                    prueba o real lo define el tipo de credencial que pegues (pestaña Prueba o
+                                    Productivas en Mercado Pago). El webhook se activa siempre.
+                                </small>
                             </div>
 
                             <div class="col-md-6 form-group">

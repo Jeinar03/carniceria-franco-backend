@@ -136,6 +136,7 @@ Route::group(['middleware' => 'cors'], function () {
             // Checkout MercadoPago
             Route::prefix('mercadopago')->group(function () {
                 Route::post('/create-preference',            [MercadoPagoController::class, 'createPreference']);
+                Route::post('/confirm-payment',              [MercadoPagoController::class, 'confirmPayment']);
                 Route::get('/payment-status/{paymentId}',    [MercadoPagoController::class, 'checkPaymentStatus']);
                 Route::get('/venta-by-preference/{preferenceId}', [MercadoPagoController::class, 'getVentaByPreference']);
             });

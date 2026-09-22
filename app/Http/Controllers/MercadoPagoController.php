@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use MercadoPago\Item;
 use MercadoPago\Payer;
 use MercadoPago\Preference;
@@ -19,28 +20,68 @@ use MercadoPago\SDK;
 
 class MercadoPagoController extends Controller
 {
+    /** El SDK solo se inicializa cuando hay Access Token; sin él no se puede hablar con Mercado Pago. */
+    private bool $configured = false;
+
     public function __construct()
     {
         $credentials = MercadoPagoSetting::credentials();
-        $accessToken = $credentials['access_token'];
 
-        // ⚠️ DEBUG: Verifica qué credencial está usando
-        Log::info('🔑 Access Token cargado:', [
-            'token_prefix' => $accessToken ? substr($accessToken, 0, 10) : null,
-            'is_test'      => strpos($accessToken, 'TEST-') === 0 ? 'SÍ ✅' : 'NO ❌ PRODUCCIÓN',
-            'environment'  => config('app.env'),
-        ]);
-
-        if (! $accessToken) {
-            Log::error('MERCADOPAGO_ACCESS_TOKEN no configurado en .env');
+        if (! $credentials['access_token']) {
+            Log::error('Mercado Pago sin Access Token: captúralo en Sistema → Mercado Pago (o MERCADOPAGO_ACCESS_TOKEN en el .env)');
             return;
         }
 
+        try {
+            $this->inicializarSdk($credentials['access_token']);
+        } catch (\Throwable $e) {
+            // El SDK consulta /users/me al recibir el token: si Mercado Pago lo rechaza (token
+            // incorrecto o expirado) o no hay red, falla aquí. Sin este try/catch cualquier
+            // petición a este controlador (webhook incluido) terminaba en un 500 sin explicación.
+            Log::error('Mercado Pago rechazó el Access Token o no respondió: ' . $e->getMessage());
+            return;
+        }
+
+        $this->configured = true;
+
+        Log::info('Mercado Pago listo', [
+            'sandbox'     => (bool) $credentials['sandbox'],
+            'environment' => config('app.env'),
+        ]);
+    }
+
+    private function noConfigurado()
+    {
+        return response()->json([
+            'success' => false,
+            'status'  => 503,
+            'message' => 'El pago con Mercado Pago no está disponible por el momento. Elige otro método de pago.',
+            'data'    => null,
+        ], 503);
+    }
+
+    protected function inicializarSdk(string $accessToken): void
+    {
         SDK::setAccessToken($accessToken);
+    }
+
+    /** Consulta el pago a Mercado Pago (única fuente de verdad del estado y el monto). */
+    protected function obtenerPago($paymentId)
+    {
+        return \MercadoPago\Payment::find_by_id($paymentId);
+    }
+
+    protected function guardarPreferencia(Preference $preference): bool
+    {
+        return (bool) $preference->save();
     }
 
     public function createPreference(Request $request)
     {
+        if (! $this->configured) {
+            return $this->noConfigurado();
+        }
+
         Log::info('═══════════════════════════════════════');
         Log::info('🚀 INICIANDO CREACIÓN DE PREFERENCIA MP');
         Log::info('═══════════════════════════════════════');
@@ -82,7 +123,7 @@ class MercadoPagoController extends Controller
             'productos.*.cantidad'    => 'nullable|numeric|min:0.01',
             'productos.*.monto_pesos' => 'nullable|numeric|min:1',
             'metodo_pago'             => 'required|string',
-            'descuento'               => 'nullable|numeric|min:0',
+            // El descuento no se recibe: lo calcula el servidor según el tipo de cliente.
             'notas'                   => 'nullable|string',
         ]);
 
@@ -107,6 +148,7 @@ class MercadoPagoController extends Controller
             ]);
 
             $items    = [];
+            $montos   = []; // total de cada renglón, en el mismo orden que $items
             $subtotal = 0;
             $detalles = [];
 
@@ -128,7 +170,7 @@ class MercadoPagoController extends Controller
                 Log::info("💰 Precio unitario: \${$precioUnitario}");
 
                 if (isset($productoData['monto_pesos']) && $productoData['monto_pesos'] > 0) {
-                    $montoPesos = floatval($productoData['monto_pesos']);
+                    $montoPesos = round(floatval($productoData['monto_pesos']), 2);
                     Log::info("💵 VENTA POR PESOS - Monto: \${$montoPesos}");
 
                     $cantidadEquivalente = $montoPesos / $precioUnitario;
@@ -152,6 +194,7 @@ class MercadoPagoController extends Controller
                     }
 
                     $items[]  = $item;
+                    $montos[] = $montoPesos;
                     $subtotal += $montoPesos;
 
                     $detalles[] = [
@@ -176,7 +219,7 @@ class MercadoPagoController extends Controller
                         throw new \Exception("Stock insuficiente para {$product->nombre}");
                     }
 
-                    $itemSubtotal = $precioUnitario * $cantidad;
+                    $itemSubtotal = round($precioUnitario * $cantidad, 2);
 
                     $item              = new Item();
                     $item->id          = strval($product->id);
@@ -186,7 +229,7 @@ class MercadoPagoController extends Controller
                     // MercadoPago requiere quantity entero > 0.
                     // Para cantidades decimales (kg, gramos, etc.), consolidamos el total del renglon en una sola unidad.
                     $item->quantity    = 1;
-                    $item->unit_price  = round((float) $itemSubtotal, 2);
+                    $item->unit_price  = $itemSubtotal;
                     $item->currency_id = "MXN";
 
                     if ($product->imagen) {
@@ -194,6 +237,7 @@ class MercadoPagoController extends Controller
                     }
 
                     $items[]  = $item;
+                    $montos[] = $itemSubtotal;
                     $subtotal += $itemSubtotal;
 
                     $detalles[] = [
@@ -219,11 +263,28 @@ class MercadoPagoController extends Controller
             Log::info("📊 Total items: " . count($items) . ", Subtotal: \${$subtotal}");
 
             // Carne fresca sin procesar: IVA tasa 0% (art. 2-A LIVA). No se cobra impuesto.
-            $descuento = floatval($request->descuento ?? 0);
-            $impuestos = 0;
-            $total     = $subtotal - $descuento;
+            // El descuento (mayoristas) lo decide el servidor, no el cliente: así la venta,
+            // el total del carrito y lo que cobra Mercado Pago son siempre el mismo número.
+            $pricing    = app(PricingService::class);
+            $porcentaje = $pricing->porcentajeDescuentoParaCliente($customer);
+            $subtotal   = round($subtotal, 2);
+            $descuento  = round($subtotal * $porcentaje / 100, 2);
+            $impuestos  = 0;
+            $total      = round($subtotal - $descuento, 2);
 
-            Log::info("💳 Creando venta pendiente - Total: \${$total}");
+            if ($total < 0.01) {
+                throw new \Exception('El total de la compra no es válido');
+            }
+
+            // Mercado Pago cobra la suma de sus items: repartimos el descuento entre ellos.
+            foreach ($pricing->repartirTotal($montos, $total) as $i => $monto) {
+                if ($monto < 0.01) {
+                    throw new \Exception('El monto de un producto es demasiado pequeño para cobrarlo');
+                }
+                $items[$i]->unit_price = $monto;
+            }
+
+            Log::info("💳 Creando venta pendiente - Subtotal: \${$subtotal}, Descuento: \${$descuento}, Total: \${$total}");
 
             $ventaPendiente = Sale::create([
                 'customer_id'  => $request->customer_id,
@@ -263,28 +324,27 @@ class MercadoPagoController extends Controller
             $preference        = new Preference();
             $preference->items = $items;
 
-            // ✅ Información del pagador - CONDICIONAL POR AMBIENTE
+            // ✅ Información del pagador
             $payer          = new Payer();
             $payer->name    = $customer->nombre;
             $payer->surname = $customer->apellido ?? '';
 
-            // SOLO en desarrollo local: omitir email para evitar verificación 2FA
-            // En producción: usar email real del cliente
-            $isLocal = (bool) MercadoPagoSetting::credentials()['sandbox'];
+            // Con Sandbox activo se omite el correo (evita la verificación 2FA de una cuenta real
+            // durante las pruebas). Sin Sandbox se usa el correo real del cliente.
+            // Ojo: este toggle SOLO afecta al correo; el webhook y el regreso a la tienda no dependen de él.
+            $sandbox = (bool) MercadoPagoSetting::credentials()['sandbox'];
 
-            if ($isLocal) {
-                // NO establecer email en desarrollo - evita verificación 2FA
-                Log::info("⚠️ Payer email OMITIDO (modo: " . config('app.env') . ")");
+            if ($sandbox) {
+                Log::info("⚠️ Payer email OMITIDO (Sandbox activo)");
             } else {
-                // En producción usar email real
                 $payer->email = $customer->correo;
-                Log::info("✉️ Payer email CONFIGURADO (producción): {$customer->correo}");
+                Log::info("✉️ Payer email CONFIGURADO: {$customer->correo}");
             }
 
             Log::info("👤 Payer configurado:", [
                 'name'        => $payer->name,
                 'surname'     => $payer->surname,
-                'email'       => $isLocal ? '🚫 OMITIDO (desarrollo)' : $customer->correo,
+                'email'       => $sandbox ? '🚫 OMITIDO (sandbox)' : $customer->correo,
                 'environment' => config('app.env'),
             ]);
 
@@ -311,12 +371,33 @@ class MercadoPagoController extends Controller
                 'customer_id' => $customer->id,
             ];
 
-            // Webhook - Solo en producción con HTTPS
-            if (!$isLocal && !empty(env('MERCADOPAGO_WEBHOOK_URL'))) {
-                $preference->notification_url = env('MERCADOPAGO_WEBHOOK_URL');
-                Log::info("🔔 Webhook habilitado: " . env('MERCADOPAGO_WEBHOOK_URL'));
+            // Webhook: Mercado Pago solo puede llamar a una URL pública con HTTPS.
+            // Sirve igual con credenciales de prueba que productivas (no depende de Sandbox).
+            $notificationUrl = (string) config('mercadopago.notification_url');
+            if (Str::startsWith($notificationUrl, 'https://')) {
+                $preference->notification_url = $notificationUrl;
+                Log::info("🔔 Webhook habilitado: {$notificationUrl}");
             } else {
-                Log::info("⚠️ Webhook deshabilitado (desarrollo local o sin URL configurada)");
+                Log::warning("⚠️ Webhook NO registrado: la URL no es HTTPS público ({$notificationUrl}). "
+                    . "La venta solo se confirmará cuando el cliente regrese a la tienda.");
+            }
+
+            // Regreso a la tienda: sin back_urls el cliente se queda en Mercado Pago después de pagar.
+            $frontendUrl = (string) config('mercadopago.frontend_url');
+            if ($frontendUrl !== '') {
+                $volver = $frontendUrl . '/pages/payment-callback';
+                $preference->back_urls = [
+                    'success' => $volver,
+                    'failure' => $volver,
+                    'pending' => $volver,
+                ];
+
+                // auto_return solo lo acepta Mercado Pago con URLs HTTPS.
+                if (Str::startsWith($frontendUrl, 'https://')) {
+                    $preference->auto_return = 'approved';
+                }
+            } else {
+                Log::warning('⚠️ FRONTEND_URL no configurado: el cliente no regresará a la tienda al terminar de pagar.');
             }
 
             // Configuraciones adicionales
@@ -328,7 +409,7 @@ class MercadoPagoController extends Controller
             Log::info("💾 Guardando preferencia en MercadoPago...");
 
             // Guardar preferencia
-            $saved = $preference->save();
+            $saved = $this->guardarPreferencia($preference);
 
             if (! $saved) {
                 Log::error('❌ Error al guardar preferencia');
@@ -384,86 +465,135 @@ class MercadoPagoController extends Controller
     {
         Log::info('═══ WEBHOOK MERCADOPAGO ═══', $request->all());
 
+        if (! $this->configured) {
+            return response()->json(['error' => 'Mercado Pago no configurado'], 503);
+        }
+
+        // Webhooks: {"type":"payment","data":{"id":"123"}}. IPN: ?topic=payment&id=123.
+        $type      = $request->input('type', $request->input('topic'));
+        $paymentId = $request->input('data.id', $request->input('id'));
+
+        // Solo pagos con id numérico: el id se usa para armar la URL de la API de Mercado Pago.
+        if ($type !== 'payment' || ! is_scalar($paymentId) || ! ctype_digit((string) $paymentId)) {
+            return response()->json(['success' => true], 200);
+        }
+
         try {
-            $type = $request->input('type');
-            $data = $request->input('data');
+            Log::info("💳 Procesando pago ID: {$paymentId}");
 
-            if ($type === 'payment') {
-                $paymentId = $data['id'];
-                Log::info("💳 Procesando pago ID: {$paymentId}");
+            $payment = $this->obtenerPago($paymentId);
 
-                $payment = \MercadoPago\Payment::find_by_id($paymentId);
-
-                if ($payment) {
-                    $ventaId = intval($payment->external_reference);
-                    $venta   = Sale::find($ventaId);
-
-                    if ($venta) {
-                        Log::info("📦 Venta encontrada ID: {$ventaId}");
-
-                        if ($payment->status === 'approved') {
-                            Log::info("✅ Pago APROBADO");
-                            $this->procesarPagoAprobado($venta, $payment);
-                        } elseif ($payment->status === 'rejected') {
-                            Log::info("❌ Pago RECHAZADO");
-                            $venta->estatus                = 'cancelada';
-                            $venta->mercadopago_payment_id = $paymentId;
-                            $venta->mercadopago_status     = $payment->status;
-                            $venta->save();
-                        } elseif ($payment->status === 'pending') {
-                            Log::info("⏳ Pago PENDIENTE");
-                            $venta->mercadopago_payment_id = $paymentId;
-                            $venta->mercadopago_status     = $payment->status;
-                            $venta->save();
-                        }
-                    } else {
-                        Log::warning("⚠️ Venta no encontrada para ID: {$ventaId}");
-                    }
-                } else {
-                    Log::warning("⚠️ Pago no encontrado en MP: {$paymentId}");
-                }
+            if ($payment) {
+                $this->sincronizarPago($payment);
+            } else {
+                Log::warning("⚠️ Pago no encontrado en MP: {$paymentId}");
             }
 
             return response()->json(['success' => true], 200);
 
         } catch (\Exception $e) {
             Log::error('❌ Error en webhook: ' . $e->getMessage());
-            return response()->json(['error' => $e->getMessage()], 500);
+            // 500 para que Mercado Pago reintente; el detalle queda solo en el log.
+            return response()->json(['error' => 'Error al procesar la notificación'], 500);
         }
     }
 
-    private function procesarPagoAprobado($venta, $payment)
+    /**
+     * Aplica a la venta el estado real de un pago. Lo usan el webhook (servidor a servidor)
+     * y el retorno del cliente (confirmPayment); pueden llegar al mismo tiempo, por eso
+     * todo es idempotente.
+     */
+    private function sincronizarPago($payment): ?Sale
     {
-        DB::beginTransaction();
+        $venta = Sale::find((int) $payment->external_reference);
 
-        try {
-            // Evita procesar dos veces la misma venta por reintentos de webhook.
+        if (! $venta || $venta->metodo_pago !== 'mercado_pago') {
+            Log::warning('⚠️ Pago sin venta de Mercado Pago asociada', [
+                'payment_id'         => $payment->id,
+                'external_reference' => $payment->external_reference,
+            ]);
+            return null;
+        }
+
+        Log::info("📦 Venta {$venta->id} - pago {$payment->id}: {$payment->status}");
+
+        if ($payment->status === 'approved') {
+            $this->procesarPagoAprobado($venta, $payment);
+        } elseif ($venta->estatus !== 'completada') {
+            // Un intento fallido puede notificarse después del aprobado: nunca se degrada una venta ya cobrada.
+            if (in_array($payment->status, ['rejected', 'cancelled'], true)) {
+                $venta->estatus = 'cancelada';
+            }
+            $this->registrarPago($venta, $payment);
+        }
+
+        return $venta->fresh();
+    }
+
+    private function registrarPago(Sale $venta, $payment): void
+    {
+        $venta->mercadopago_payment_id = $payment->id;
+        $venta->mercadopago_status     = $payment->status;
+        $venta->save();
+    }
+
+    /**
+     * Cobro aprobado: verifica el monto, descuenta el stock y completa la venta.
+     * Devuelve true si la venta quedó completada. Bloquea la venta para que el webhook
+     * y el retorno del cliente no descuenten el stock dos veces.
+     */
+    private function procesarPagoAprobado(Sale $venta, $payment): bool
+    {
+        return DB::transaction(function () use ($venta, $payment) {
+            $venta = Sale::whereKey($venta->id)->lockForUpdate()->firstOrFail();
+
             if ($venta->estatus === 'completada') {
                 Log::info("ℹ️ Venta {$venta->id} ya estaba completada, se omite reproceso");
-                DB::commit();
-                return;
+                return true;
             }
 
-            $venta->loadMissing('details');
+            // Se registra siempre: aunque la venta no se pueda completar, queda constancia del cobro.
+            $this->registrarPago($venta, $payment);
 
-            foreach ($venta->details as $detail) {
-                $product = Product::find($detail->product_id);
-
-                if (!$product) {
-                    throw new \Exception("Producto no encontrado para detalle {$detail->id}");
-                }
-
-                if ((float) $product->stock < (float) $detail->cantidad) {
-                    throw new \Exception("Stock insuficiente para {$product->nombre} al confirmar el pago");
-                }
-
-                app(InventoryService::class)->addSaleExit($product, $detail);
+            $pagado = (float) $payment->transaction_amount;
+            if (abs($pagado - (float) $venta->total) > 0.01 || ($payment->currency_id ?? 'MXN') !== 'MXN') {
+                Log::error('❌ El monto cobrado no coincide con la venta; requiere revisión manual', [
+                    'venta_id'    => $venta->id,
+                    'payment_id'  => $payment->id,
+                    'total_venta' => $venta->total,
+                    'pagado'      => $pagado,
+                    'moneda'      => $payment->currency_id ?? null,
+                ]);
+                return false;
             }
 
-            $venta->estatus                = 'completada';
-            $venta->mercadopago_payment_id = $payment->id;
-            $venta->mercadopago_status     = $payment->status;
-            $venta->save();
+            try {
+                // Transacción anidada (savepoint): si falla, se revierten las salidas de stock pero no el registro del pago.
+                DB::transaction(function () use ($venta) {
+                    $venta->loadMissing('details');
+
+                    foreach ($venta->details as $detail) {
+                        $product = Product::find($detail->product_id);
+
+                        if (! $product) {
+                            throw new \RuntimeException("Producto no encontrado para el detalle {$detail->id}");
+                        }
+
+                        // Lanza InsufficientStockException (RuntimeException) si ya no hay existencia.
+                        app(InventoryService::class)->addSaleExit($product, $detail);
+                    }
+
+                    $venta->estatus = 'completada';
+                    $venta->save();
+                });
+            } catch (\RuntimeException $e) {
+                Log::error('❌ Pago aprobado pero no se pudo completar la venta; requiere revisión manual (reembolso o surtir)', [
+                    'venta_id'   => $venta->id,
+                    'payment_id' => $payment->id,
+                    'detalle'    => $e->getMessage(),
+                ]);
+                return false;
+            }
 
             $customer = Customers::find($venta->customer_id);
             if ($customer) {
@@ -475,42 +605,124 @@ class MercadoPagoController extends Controller
                 Log::info("👤 Cliente actualizado: {$customer->nombre}");
             }
 
-            DB::commit();
-
             Log::info('✅ Pago procesado correctamente', [
                 'venta_id'   => $venta->id,
                 'payment_id' => $payment->id,
                 'total'      => $venta->total,
             ]);
 
+            return true;
+        });
+    }
+
+    /**
+     * Retorno del cliente desde Mercado Pago. Confirma el pago contra la API de Mercado Pago
+     * (no contra lo que diga la URL) y devuelve el estado real de la venta. Es el respaldo
+     * del webhook: si éste ya procesó el pago, no repite nada.
+     */
+    public function confirmPayment(Request $request)
+    {
+        if (! $this->configured) {
+            return $this->noConfigurado();
+        }
+
+        $validator = Validator::make($request->all(), [
+            'payment_id' => 'required|digits_between:1,20',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'status'  => 422,
+                'message' => 'Error de validación',
+                'data'    => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $payment = $this->obtenerPago($request->input('payment_id'));
+
+            if (! $payment) {
+                return response()->json([
+                    'success' => false,
+                    'status'  => 404,
+                    'message' => 'Pago no encontrado',
+                    'data'    => null,
+                ], 404);
+            }
+
+            $venta = Sale::find((int) $payment->external_reference);
+
+            // Solo el dueño de la venta puede confirmar su pago.
+            if (! $venta || (int) $venta->customer_id !== (int) $request->user()->id) {
+                return response()->json([
+                    'success' => false,
+                    'status'  => 403,
+                    'message' => 'No autorizado',
+                    'data'    => null,
+                ], 403);
+            }
+
+            $venta = $this->sincronizarPago($payment) ?? $venta;
+
+            return response()->json([
+                'success' => true,
+                'status'  => 200,
+                'message' => 'Pago confirmado',
+                'data'    => [
+                    'venta_id'           => $venta->id,
+                    'folio'              => $venta->folio,
+                    'estatus'            => $venta->estatus,
+                    'total'              => $venta->total,
+                    'pago_status'        => $payment->status,
+                    'pago_status_detail' => $payment->status_detail,
+                ],
+            ], 200);
+
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('❌ Error procesando pago aprobado: ' . $e->getMessage());
-            throw $e;
+            Log::error('❌ Error al confirmar pago: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'status'  => 500,
+                'message' => 'No se pudo confirmar el pago. Si te cobraron, tu compra se confirmará automáticamente.',
+                'data'    => null,
+            ], 500);
         }
     }
 
     public function checkPaymentStatus(Request $request, $paymentId)
     {
-        // Si el pago está ligado a una venta, sólo su dueño puede consultarlo.
-        $venta = Sale::where('mercadopago_payment_id', $paymentId)->first();
-        if ($venta && (int) $venta->customer_id !== (int) $request->user()->id) {
+        if (! $this->configured) {
+            return $this->noConfigurado();
+        }
+
+        if (! ctype_digit((string) $paymentId)) {
             return response()->json([
                 'success' => false,
-                'status'  => 403,
-                'message' => 'No autorizado',
-                'data'    => null,
-            ], 403);
+                'message' => 'Pago no encontrado',
+            ], 404);
         }
 
         try {
-            $payment = \MercadoPago\Payment::find_by_id($paymentId);
+            $payment = $this->obtenerPago($paymentId);
 
             if (! $payment) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Pago no encontrado',
                 ], 404);
+            }
+
+            // Solo el dueño de la venta puede consultar el pago.
+            $venta = Sale::find((int) $payment->external_reference);
+            if (! $venta || (int) $venta->customer_id !== (int) $request->user()->id) {
+                return response()->json([
+                    'success' => false,
+                    'status'  => 403,
+                    'message' => 'No autorizado',
+                    'data'    => null,
+                ], 403);
             }
 
             return response()->json([
