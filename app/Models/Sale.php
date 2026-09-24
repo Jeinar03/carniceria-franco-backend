@@ -11,6 +11,18 @@ class Sale extends Model
 
     protected $table = 'sales';
 
+    // Estatus de pago/venta (columna `estatus`)
+    const ESTATUS_COMPLETADA = 'completada';
+    const ESTATUS_PENDIENTE = 'pendiente';
+    const ESTATUS_CANCELADA = 'cancelada';
+
+    // Estado de envío/despacho (columna `estado_envio`)
+    const ENVIO_PENDIENTE = 'Pendiente';
+    const ENVIO_PROCESANDO = 'Procesando';
+    const ENVIO_LISTO = 'Listo_para_enviar';
+    const ENVIO_ENVIADO = 'Enviado';
+    const ENVIO_ENTREGADO = 'Entregado';
+
     protected $fillable = [
         'customer_id',
         'folio',
@@ -31,7 +43,9 @@ class Sale extends Model
         'estatus',
         'notas',
         'usuario_id',
-        'estado_envio'
+        'estado_envio',
+        'entregado_at',
+        'entregado_por',
     ];
 
     protected $casts = [
@@ -43,6 +57,7 @@ class Sale extends Model
         'total' => 'decimal:2',
         'transferencia_subida_at' => 'datetime',
         'transferencia_validada_at' => 'datetime',
+        'entregado_at' => 'datetime',
     ];
 
     protected $attributes = [
@@ -76,6 +91,12 @@ class Sale extends Model
         return $this->belongsTo(User::class, 'usuario_id');
     }
 
+    // Relación: usuario que marcó la venta como entregada
+    public function entregadoPor()
+    {
+        return $this->belongsTo(User::class, 'entregado_por');
+    }
+
     public function indicadorRespuestas()
     {
         return $this->hasMany(IndicadorRespuesta::class, 'sale_id');
@@ -84,19 +105,19 @@ class Sale extends Model
     // Scope para ventas completadas
     public function scopeCompletadas($query)
     {
-        return $query->where('estatus', 'completada');
+        return $query->where('estatus', self::ESTATUS_COMPLETADA);
     }
 
     // Scope para ventas pendientes
     public function scopePendientes($query)
     {
-        return $query->where('estatus', 'pendiente');
+        return $query->where('estatus', self::ESTATUS_PENDIENTE);
     }
 
     // Scope para ventas canceladas
     public function scopeCanceladas($query)
     {
-        return $query->where('estatus', 'cancelada');
+        return $query->where('estatus', self::ESTATUS_CANCELADA);
     }
 
     // Scope para pedidos programados a una fecha de entrega futura (posterior a hoy)
@@ -130,6 +151,43 @@ class Sale extends Model
     public function scopePorMetodoPago($query, $metodo)
     {
         return $query->where('metodo_pago', $metodo);
+    }
+
+    /**
+     * Marca la venta como entregada de inmediato: cierra todas sus líneas de
+     * despacho y pone el estado de envío en "Entregado" sin pasar por la
+     * cola de Despachos. Pensado para la venta de mostrador (cliente
+     * general), donde el producto se entrega en el momento del cobro.
+     */
+    public function marcarEntregadaMostrador(?int $usuarioId = null): self
+    {
+        $this->estado_envio = self::ENVIO_ENTREGADO;
+        $this->entregado_at = now();
+        $this->entregado_por = $usuarioId ?: $this->entregado_por;
+        $this->save();
+
+        $this->details()->update(['estado_despacho' => 1]);
+
+        return $this;
+    }
+
+    /**
+     * Determina si una venta puede/debe entregarse sola al crearse o al
+     * aprobarse su pago: es venta de mostrador (sin cliente registrado, o
+     * dado de alta al vuelo), no tiene fecha de entrega programada a
+     * futuro, y su pago ya quedó confirmado.
+     */
+    public function esElegibleParaEntregaMostrador(): bool
+    {
+        if ($this->estatus !== self::ESTATUS_COMPLETADA) {
+            return false;
+        }
+
+        if ($this->fecha_entrega && $this->fecha_entrega->toDateString() > now()->toDateString()) {
+            return false;
+        }
+
+        return true;
     }
 
     // Accessor para calcular el número de items

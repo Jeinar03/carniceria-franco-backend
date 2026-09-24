@@ -20,6 +20,13 @@
                     @else
                         <span class="badge badge-info sales-badge-status">Entregada</span>
                     @endif
+                    @if($sale->estado_envio === 'Entregado')
+                        <span class="badge badge-success sales-badge-status">Entrega: Entregado</span>
+                    @elseif($sale->estado_envio === 'Enviado')
+                        <span class="badge badge-primary sales-badge-status">Entrega: Enviado</span>
+                    @elseif($sale->estado_envio)
+                        <span class="badge badge-secondary sales-badge-status">Entrega: {{ str_replace('_', ' ', $sale->estado_envio) }}</span>
+                    @endif
                 </h6>
                 <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close" wire:click="requestCloseDetail">
                     <span aria-hidden="true">&times;</span>

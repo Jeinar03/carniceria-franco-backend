@@ -94,6 +94,7 @@
                                 <th class="table-th text-right">TOTAL</th>
                                 <th class="table-th">METODO PAGO</th>
                                 <th class="table-th">ESTATUS</th>
+                                <th class="table-th">ENTREGA</th>
                                 <th class="table-th text-center">ACCIONES</th>
                             </tr>
                         </thead>
@@ -144,6 +145,19 @@
                                             <span class="badge badge-danger">Cancelada</span>
                                         @else
                                             <span class="badge badge-info">Entregada</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($venta->estado_envio === 'Entregado')
+                                            <span class="badge badge-success">Entregado</span>
+                                        @elseif($venta->estado_envio === 'Enviado')
+                                            <span class="badge badge-primary">Enviado</span>
+                                        @elseif($venta->estado_envio === 'Listo_para_enviar')
+                                            <span class="badge badge-info">Listo para enviar</span>
+                                        @elseif($venta->estado_envio === 'Procesando')
+                                            <span class="badge badge-warning">Procesando</span>
+                                        @else
+                                            <span class="badge badge-secondary">Pendiente</span>
                                         @endif
                                     </td>
                                     <td class="text-center">
