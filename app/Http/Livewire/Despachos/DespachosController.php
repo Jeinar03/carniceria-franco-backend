@@ -1143,6 +1143,7 @@ class DespachosController extends Component
         $this->transferValidationData = [
             'id' => $sale->id,
             'folio' => $sale->folio,
+            'customer_id' => $sale->customer_id,
             'customer_nombre' => $sale->customer ? trim(($sale->customer->nombre ?? '') . ' ' . ($sale->customer->apellido ?? '')) : 'Cliente General',
             'transferencia_estado' => $sale->transferencia_estado ?? 'pendiente',
             'transferencia_evidencia_path' => $sale->transferencia_evidencia_path,
@@ -1174,6 +1175,60 @@ class DespachosController extends Component
     public function rejectTransfer()
     {
         $this->validateTransferDecision('rechazada');
+    }
+
+    /**
+     * Confirmar en mostrador una transferencia de Cliente General sin
+     * evidencia digital: el cliente le enseña la transferencia al empleado
+     * ahí mismo (captura, WhatsApp, etc.) y el empleado, a su criterio,
+     * libera el pedido. Solo aplica quien no tiene cuenta registrada (no
+     * hay forma de que suba evidencia por la tienda en línea); un cliente
+     * con cuenta sigue el flujo normal de evidencia + validación.
+     */
+    public function confirmarTransferenciaMostrador()
+    {
+        if (!$this->transferValidationSaleId) {
+            $this->emit('despacho-error', 'No hay una venta seleccionada para validar');
+            return;
+        }
+
+        $sale = Sale::find($this->transferValidationSaleId);
+        if (!$sale) {
+            $this->emit('despacho-error', 'Venta no encontrada');
+            return;
+        }
+
+        if ($sale->metodo_pago !== 'transferencia') {
+            $this->emit('despacho-error', 'La venta no corresponde a transferencia');
+            return;
+        }
+
+        if ($sale->customer_id) {
+            $this->emit('despacho-error', 'Este cliente tiene cuenta registrada: debe subir la evidencia digital para validarla');
+            return;
+        }
+
+        $notaActual = trim((string) $sale->notas);
+        $notaValidacion = 'Transferencia confirmada en mostrador por '
+            . (auth()->user()->name ?? 'empleado')
+            . ' — el cliente mostró el comprobante en persona, sin evidencia digital.';
+
+        $sale->transferencia_estado = 'aprobada';
+        $sale->transferencia_validada_at = now();
+        $sale->transferencia_validada_por = auth()->id();
+        $sale->notas = $notaActual !== '' ? $notaActual . PHP_EOL . $notaValidacion : $notaValidacion;
+        $sale->estatus = Sale::ESTATUS_COMPLETADA;
+        $sale->save();
+
+        if ($sale->esElegibleParaEntregaMostrador()) {
+            $sale->marcarEntregadaMostrador(auth()->id());
+        }
+
+        $this->transferValidationData['transferencia_estado'] = $sale->transferencia_estado;
+
+        $this->emit('despacho-updated', 'Transferencia confirmada en mostrador; pedido liberado');
+        $this->emit('hide-transfer-validation-modal');
+        $this->closeTransferValidationModal();
     }
 
     private function validateTransferDecision(string $decision)
