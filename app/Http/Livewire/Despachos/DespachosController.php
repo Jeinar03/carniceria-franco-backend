@@ -47,6 +47,13 @@ class DespachosController extends Component
     public $productSearch = '';
     public $cart = [];
 
+    // Venta de mostrador: si queda marcada, el pedido se entrega solo al
+    // crearse (no pasa por la cola de Despachos). Por defecto viene
+    // encendido cuando no se elige un cliente (Cliente General) y apagado
+    // en cuanto se selecciona un cliente registrado; el usuario lo puede
+    // corregir a mano en cualquier caso.
+    public $createEntregadoMostrador = true;
+
     // Alta rápida de cliente de mostrador (dentro del modal de Crear Orden)
     public $showNuevoCliente = false;
     public $nuevoNombre = '';
@@ -166,6 +173,11 @@ class DespachosController extends Component
      */
     public function updatedCreateCustomerId()
     {
+        // Sin cliente = venta de mostrador: se entrega sola por defecto.
+        // Con cliente elegido (registrado o de alta rápida) ya no se asume;
+        // el usuario puede seguir marcando la casilla a mano si aplica.
+        $this->createEntregadoMostrador = empty($this->createCustomerId);
+
         if (empty($this->cart)) {
             return;
         }
@@ -437,10 +449,10 @@ class DespachosController extends Component
                     'impuestos' => $impuestos,
                     'total' => $total,
                     'metodo_pago' => $this->createMetodoPago,
-                    'estatus' => $this->createMetodoPago === 'transferencia' ? 'pendiente' : 'completada',
+                    'estatus' => $this->createMetodoPago === 'transferencia' ? Sale::ESTATUS_PENDIENTE : Sale::ESTATUS_COMPLETADA,
                     'transferencia_estado' => $this->createMetodoPago === 'transferencia' ? 'pendiente' : null,
                     'notas' => $this->createNotas,
-                    'estado_envio' => 'Pendiente',
+                    'estado_envio' => Sale::ENVIO_PENDIENTE,
                     'usuario_id' => auth()->id(),
                 ]);
 
@@ -468,6 +480,14 @@ class DespachosController extends Component
                     ]);
 
                     app(InventoryService::class)->addSaleExit($product, $saleDetail, auth()->id());
+                }
+
+                // Venta de mostrador: se entrega en el momento, sin pasar
+                // por la cola de Despachos. Si el pago quedó pendiente
+                // (transferencia por validar), se entrega hasta que se
+                // apruebe la transferencia.
+                if ($this->createEntregadoMostrador && $sale->esElegibleParaEntregaMostrador()) {
+                    $sale->marcarEntregadaMostrador(auth()->id());
                 }
 
                 $customer = Customers::find($this->createCustomerId);
@@ -543,6 +563,7 @@ class DespachosController extends Component
         $this->createNotas = '';
         $this->createDescuento = 0;
         $this->createFechaEntrega = '';
+        $this->createEntregadoMostrador = true;
         $this->productSearch = '';
         $this->cart = [];
         $this->showNuevoCliente = false;
@@ -566,7 +587,7 @@ class DespachosController extends Component
             return;
         }
 
-        if ($sale->estatus === 'cancelada') {
+        if ($sale->estatus === Sale::ESTATUS_CANCELADA) {
             $this->emit('despacho-error', 'No se puede editar un pedido cancelado');
             return;
         }
@@ -852,7 +873,7 @@ class DespachosController extends Component
             DB::transaction(function () {
                 $sale = Sale::with('details')->lockForUpdate()->findOrFail($this->editingSaleId);
 
-                if ($sale->estatus === 'cancelada') {
+                if ($sale->estatus === Sale::ESTATUS_CANCELADA) {
                     throw new \RuntimeException('No se puede editar un pedido cancelado');
                 }
 
@@ -933,11 +954,11 @@ class DespachosController extends Component
                 if ($this->editMetodoPago === 'transferencia') {
                     if ($sale->transferencia_estado !== 'aprobada') {
                         $sale->transferencia_estado = $sale->transferencia_estado ?: 'pendiente';
-                        $sale->estatus = 'pendiente';
+                        $sale->estatus = Sale::ESTATUS_PENDIENTE;
                     }
                 } else {
                     $sale->transferencia_estado = null;
-                    $sale->estatus = 'completada';
+                    $sale->estatus = Sale::ESTATUS_COMPLETADA;
                 }
 
                 $sale->save();
@@ -1183,12 +1204,26 @@ class DespachosController extends Component
         $sale->transferencia_validada_por = auth()->id();
 
         if ($decision === 'aprobada') {
-            $sale->estatus = 'completada';
+            $sale->estatus = Sale::ESTATUS_COMPLETADA;
+
+            // Cliente general que pagó por transferencia: en cuanto se
+            // aprueba, se entrega solo igual que si hubiera pagado en
+            // efectivo en el mostrador.
+            if (!$sale->customer_id && $sale->esElegibleParaEntregaMostrador()) {
+                $sale->save();
+                $sale->marcarEntregadaMostrador(auth()->id());
+
+                $this->transferValidationData['transferencia_estado'] = $sale->transferencia_estado;
+                $this->emit('despacho-updated', 'Transferencia validada y pedido entregado automáticamente');
+                $this->emit('hide-transfer-validation-modal');
+                $this->closeTransferValidationModal();
+                return;
+            }
         } else {
             $notaActual = trim((string) $sale->notas);
             $notaValidacion = 'Transferencia rechazada: ' . trim((string) $this->transferValidationNote ?: 'Sin observaciones');
             $sale->notas = $notaActual !== '' ? $notaActual . PHP_EOL . $notaValidacion : $notaValidacion;
-            $sale->estatus = 'pendiente';
+            $sale->estatus = Sale::ESTATUS_PENDIENTE;
         }
 
         $sale->save();
@@ -1242,11 +1277,11 @@ class DespachosController extends Component
 
             // Actualizar estado de la venta
             if ($productosDespachados == 0) {
-                $sale->estado_envio = 'Pendiente';
+                $sale->estado_envio = Sale::ENVIO_PENDIENTE;
             } elseif ($productosDespachados == $totalProductos) {
-                $sale->estado_envio = 'Listo_para_enviar';
+                $sale->estado_envio = Sale::ENVIO_LISTO;
             } else {
-                $sale->estado_envio = 'Procesando';
+                $sale->estado_envio = Sale::ENVIO_PROCESANDO;
             }
 
             $sale->save();
@@ -1283,7 +1318,7 @@ class DespachosController extends Component
                 return;
             }
 
-            if ($sale->estado_envio !== 'Listo_para_enviar') {
+            if ($sale->estado_envio !== Sale::ENVIO_LISTO) {
                 $this->emit('despacho-error', 'La venta no está lista para enviar');
                 return;
             }
@@ -1297,7 +1332,7 @@ class DespachosController extends Component
             }
 
             // Cambiar estado a Enviado
-            $sale->estado_envio = 'Enviado';
+            $sale->estado_envio = Sale::ENVIO_ENVIADO;
             $sale->save();
 
             // Enviar notificación de envío
@@ -1323,7 +1358,7 @@ class DespachosController extends Component
     public function render()
     {
         $baseQuery = Sale::with(['customer', 'details'])
-            ->whereIn('estado_envio', ['Pendiente', 'Procesando', 'Listo_para_enviar']);
+            ->whereIn('estado_envio', [Sale::ENVIO_PENDIENTE, Sale::ENVIO_PROCESANDO, Sale::ENVIO_LISTO]);
 
         // Pedidos programados: fecha_entrega en un día posterior a hoy. Se
         // muestran aparte y no en la lista de despachos del día hasta que llega su fecha.
