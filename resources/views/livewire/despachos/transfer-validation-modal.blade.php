@@ -70,6 +70,13 @@
                                 </div>
                             </div>
                         @endif
+                    @elseif(empty($transferData['customer_id']))
+                        <div class="alert alert-warning mb-0">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Es Cliente General: no tiene cuenta para subir evidencia digital. Si el cliente ya
+                            te mostró el comprobante de la transferencia (captura, WhatsApp, etc.), puedes
+                            confirmarlo aquí mismo y liberar el pedido.
+                        </div>
                     @else
                         <div class="alert alert-danger mb-0">
                             El cliente aun no ha subido evidencia de transferencia.
@@ -102,6 +109,23 @@
                         <i class="fas fa-spinner fa-spin"></i> Procesando...
                     </span>
                 </button>
+
+                @if($hasTransferSale && empty($transferData['customer_id']) && empty($transferData['transferencia_evidencia_path']))
+                    <button type="button"
+                            class="btn btn-warning"
+                            wire:click="confirmarTransferenciaMostrador"
+                            wire:loading.attr="disabled"
+                            wire:target="confirmarTransferenciaMostrador"
+                            title="El cliente ya te mostró el comprobante en persona">
+                        <span wire:loading.remove wire:target="confirmarTransferenciaMostrador">
+                            <i class="fas fa-mobile-alt"></i> Confirmar en mostrador (sin evidencia)
+                        </span>
+                        <span wire:loading wire:target="confirmarTransferenciaMostrador">
+                            <i class="fas fa-spinner fa-spin"></i> Procesando...
+                        </span>
+                    </button>
+                @endif
+
                 <button type="button"
                         class="btn btn-success"
                         wire:click="approveTransfer"
