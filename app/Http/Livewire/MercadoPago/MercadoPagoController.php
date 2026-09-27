@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\MercadoPago;
 
 use App\Models\MercadoPagoSetting;
+use Illuminate\Support\Facades\Http;
 use Livewire\Component;
 use Throwable;
 
@@ -85,10 +86,46 @@ class MercadoPagoController extends Component
             $this->publicKey = '';
             $this->loadSetting();
 
-            $this->emit('mercadopago-success', 'Credenciales guardadas correctamente.');
+            [$conectado, $mensaje] = $this->verifyConnection($setting);
+            $this->emit($conectado ? 'mercadopago-success' : 'mercadopago-error', $mensaje);
         } catch (Throwable $e) {
             $this->emit('mercadopago-error', 'Error al guardar credenciales: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Comprueba contra Mercado Pago que el Access Token guardado sea válido, para no
+     * enterarse hasta el checkout de un token mal copiado. Las credenciales se guardan
+     * de todos modos; esto solo avisa.
+     *
+     * @return array{0: bool, 1: string}
+     */
+    private function verifyConnection(MercadoPagoSetting $setting): array
+    {
+        if (! $setting->access_token) {
+            return [false, 'Configuración guardada, pero falta el Access Token.'];
+        }
+
+        try {
+            $response = Http::timeout(8)
+                ->withToken($setting->access_token)
+                ->get('https://api.mercadopago.com/users/me');
+        } catch (Throwable $e) {
+            return [false, 'Credenciales guardadas, pero no se pudo comprobar la conexión con Mercado Pago (sin respuesta).'];
+        }
+
+        if (in_array($response->status(), [401, 403], true)) {
+            return [false, 'Credenciales guardadas, pero Mercado Pago rechazó el Access Token. Revisa que esté completo y vigente.'];
+        }
+
+        if (! $response->successful()) {
+            return [false, 'Credenciales guardadas, pero Mercado Pago respondió con error ' . $response->status() . '.'];
+        }
+
+        $cuenta = $response->json('nickname') ?: 'tu cuenta';
+        $sitio = $response->json('site_id');
+
+        return [true, 'Credenciales guardadas. Conectado a Mercado Pago como ' . $cuenta . ($sitio ? " ({$sitio})" : '') . '.'];
     }
 
     private function loadSetting(): void

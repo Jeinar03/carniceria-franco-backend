@@ -82,6 +82,12 @@
                                     <small class="text-muted d-block mt-1">Déjalo vacío para entrega inmediata (hoy). Si el pedido es para un día posterior, aparecerá en la pestaña "Pedidos Programados".</small>
                                 </div>
 
+                                <div class="form-group form-check">
+                                    <input type="checkbox" wire:model="createEntregadoMostrador" class="form-check-input" id="createEntregadoMostrador">
+                                    <label class="form-check-label" for="createEntregadoMostrador">Entregado en mostrador</label>
+                                    <small class="text-muted d-block mt-1">Si se queda marcado, el pedido se guarda directo como entregado y no pasa por la cola de Despachos. Se marca solo cuando es Cliente General; desmárcalo si el producto se va a preparar después.</small>
+                                </div>
+
                                 <div class="form-group mb-0">
                                     <label>Notas</label>
                                     <textarea wire:model="createNotas" class="form-control" rows="3" placeholder="Notas internas del pedido..."></textarea>
