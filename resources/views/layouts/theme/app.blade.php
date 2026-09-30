@@ -9,7 +9,8 @@
     <link rel="icon" type="image/x-icon" href="{{ asset('images/logo.jpeg') }}" />
     <script defer src="{{ asset('plugins/cdn/alpinejs/alpine.min.js') }}"></script>
     <script src="{{ asset('assets/js/libs/jquery-3.1.1.min.js') }}"></script>
-    <script src="{{ asset('plugins/cdn/bootstrap/bootstrap.bundle.min.js') }}"></script>
+    {{-- Bootstrap se carga una sola vez, al final del body (layouts.theme.scripts). Cargarlo tambien aqui
+         registraba dos manejadores de clic y los desplegables (Sin stock, Por terminar) se abrian y cerraban al instante. --}}
     <link href="{{ asset('plugins/cdn/toastr/toastr.min.css') }}" rel="stylesheet">
 
     @php
