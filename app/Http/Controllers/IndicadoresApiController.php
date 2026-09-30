@@ -82,7 +82,9 @@ class IndicadoresApiController extends Controller
                 'customer_id' => (int) $request->customer_id,
                 'escala' => [
                     'min' => 1,
-                    'max' => 10,
+                    'max' => 5,
+                    'etiqueta_min' => 'Muy insatisfecho',
+                    'etiqueta_max' => 'Muy satisfecho',
                 ],
                 'ya_respondio' => $respondidas->count() > 0,
                 'preguntas_respondidas' => $respondidas,
@@ -100,7 +102,7 @@ class IndicadoresApiController extends Controller
             'customer_id' => 'required|exists:customers,id',
             'respuestas' => 'required|array|min:1',
             'respuestas.*.pregunta_id' => 'required|exists:indicador_preguntas,id',
-            'respuestas.*.respuesta' => 'required|integer|min:1|max:10',
+            'respuestas.*.respuesta' => 'required|integer|min:1|max:5',
             'respuestas.*.comentario' => 'nullable|string|max:1000',
         ]);
 

@@ -61,7 +61,7 @@
 
     <div class="col-sm-12">
         <div class="alert alert-info mb-0">
-            Las respuestas de clientes se guardan con escala Likert de 1 a 10.
+            Las respuestas de clientes se guardan con escala Likert de 1 a 5 (1 = Muy insatisfecho, 5 = Muy satisfecho).
         </div>
     </div>
 </div>

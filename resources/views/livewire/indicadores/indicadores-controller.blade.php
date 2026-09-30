@@ -35,7 +35,7 @@
                 <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
                     <div class="widget p-3">
                         <small class="text-muted">Promedio general</small>
-                        <h4 class="mb-0">{{ $resumen['promedio_general'] ? number_format($resumen['promedio_general'], 1) : '0.0' }}/10</h4>
+                        <h4 class="mb-0">{{ $resumen['promedio_general'] ? number_format($resumen['promedio_general'], 1) : '0.0' }}/5</h4>
                     </div>
                 </div>
             </div>
@@ -95,7 +95,7 @@
                                         <span class="badge badge-primary">{{ $item->respuestas_count }}</span>
                                     </td>
                                     <td class="text-center">
-                                        <h6>{{ $item->promedio_respuestas ? number_format($item->promedio_respuestas, 1) : '0.0' }}/10</h6>
+                                        <h6>{{ $item->promedio_respuestas ? number_format($item->promedio_respuestas, 1) : '0.0' }}/5</h6>
                                     </td>
                                     <td class="text-center">
                                         <a href="javascript:void(0)" wire:click="toggleActivo({{ $item->id }})"
