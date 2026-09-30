@@ -79,13 +79,13 @@
                             </div>
                             <div class="zero-stock-scroll">
                                 @forelse($outOfStockProducts as $stockProduct)
-                                    <a href="{{ url('admin/inventario') }}" class="dropdown-item zero-stock-item">
+                                    <a href="{{ url('admin/inventario?rellenar=' . $stockProduct->id) }}" class="dropdown-item zero-stock-item">
                                         <span class="zero-stock-icon"><i class="fas fa-cube"></i></span>
                                         <span class="zero-stock-info">
                                             <strong>{{ $stockProduct->nombre }}</strong>
                                             <small>{{ $stockProduct->codigo ?: 'Sin código' }} · {{ ucfirst($stockProduct->unidad_venta) }}</small>
                                         </span>
-                                        <span class="badge badge-light">0</span>
+                                        <span class="badge badge-primary">Rellenar</span>
                                     </a>
                                 @empty
                                     <div class="zero-stock-empty">
