@@ -29,6 +29,35 @@ class InventarioController extends Component
     public $editQuantity;
     public $editNotes = '';
 
+    /** Verdadero cuando se llega desde el boton "Rellenar" del aviso Sin stock. */
+    public $abrirEntrada = false;
+
+    /**
+     * Desde Sin stock se entra con ?rellenar=<id del producto>: se deja buscado ese
+     * producto y la ventana de Registrar entrada se abre sola. Un id invalido, que no
+     * exista o de un producto inactivo se ignora.
+     */
+    public function mount(): void
+    {
+        $id = request()->query('rellenar');
+
+        if (! is_string($id) && ! is_int($id)) {
+            return;
+        }
+
+        if (! ctype_digit((string) $id) || (int) $id < 1) {
+            return;
+        }
+
+        $producto = Product::active()->find((int) $id);
+        if (! $producto) {
+            return;
+        }
+
+        $this->productSearch = $producto->codigo ?: $producto->nombre;
+        $this->abrirEntrada = true;
+    }
+
     public function setTab(string $tab): void
     {
         if (in_array($tab, ['entradas', 'salidas'], true)) {
