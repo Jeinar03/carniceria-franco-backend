@@ -30,9 +30,9 @@ Route::get('/', function () {
 
 Auth::routes(['register' => false]); // deshabilitamos el registro de nuevos users
 
-Route::get('/home', Dash::class);
-
 Route::middleware(['auth'])->group(function () {
+    Route::get('/home', Dash::class);
+
     Route::prefix('admin')->group(function () {
         Route::get('categorias', CategoriasController::class);
         Route::get('productos', ProductosController::class);
