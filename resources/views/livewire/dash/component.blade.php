@@ -72,7 +72,7 @@
                         {{ number_format($kpis['aceptacion_recomendaciones'], 1) }}%
                     @endif
                 </strong>
-                <small>Proxy: respuestas 8 a 10 en recomendacion</small>
+                <small>Proxy: respuestas 4 a 5 en recomendacion</small>
             </div>
         </div>
         <div class="col-xl-3 col-md-6 col-sm-12 mb-3">

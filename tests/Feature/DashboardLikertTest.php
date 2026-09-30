@@ -100,6 +100,8 @@ class DashboardLikertTest extends TestCase
             ->get('/home')
             ->assertOk()
             ->assertSee('1 - 5')
-            ->assertDontSee('1 - 10');
+            ->assertDontSee('1 - 10')
+            ->assertSee('respuestas 4 a 5')
+            ->assertDontSee('8 a 10');
     }
 }
