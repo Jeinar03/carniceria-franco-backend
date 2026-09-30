@@ -153,7 +153,7 @@ class Dash extends Component
             $totalRecomendaciones = (clone $recomendacionesQuery)->count();
             if ($totalRecomendaciones > 0) {
                 $aceptadas = (clone $recomendacionesQuery)
-                    ->where('ir.respuesta', '>=', 8)
+                    ->where('ir.respuesta', '>=', 4)
                     ->count();
 
                 $aceptacionRecomendaciones = ($aceptadas / $totalRecomendaciones) * 100;
@@ -212,7 +212,7 @@ class Dash extends Component
     {
         [$periodStart, $periodEnd] = $this->periodBounds();
 
-        $this->satisfactionDistributionData = array_fill(0, 10, 0);
+        $this->satisfactionDistributionData = array_fill(0, 5, 0);
         $this->questionSatisfactionLabels = ['Sin datos'];
         $this->questionSatisfactionData = [0];
 
@@ -227,7 +227,7 @@ class Dash extends Component
             ->pluck('total', 'respuesta')
             ->toArray();
 
-        for ($score = 1; $score <= 10; $score++) {
+        for ($score = 1; $score <= 5; $score++) {
             $this->satisfactionDistributionData[$score - 1] = (int) ($distribution[$score] ?? 0);
         }
 

@@ -224,7 +224,7 @@
                 }
             },
             dataLabels: { enabled: false },
-            xaxis: { categories: ['1','2','3','4','5','6','7','8','9','10'] },
+            xaxis: { categories: ['1','2','3','4','5'] },
             yaxis: {
                 labels: {
                     formatter: function(val) {
@@ -251,7 +251,7 @@
             },
             yaxis: {
                 min: 0,
-                max: 10,
+                max: 5,
                 tickAmount: 5
             },
             markers: {

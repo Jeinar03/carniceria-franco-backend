@@ -58,7 +58,7 @@
         <div class="col-xl-3 col-md-6 col-sm-12 mb-3">
             <div class="indicator-card">
                 <span class="indicator-label">Satisfaccion del cliente</span>
-                <strong>{{ number_format($kpis['satisfaccion_promedio'] ?? 0, 1) }}/10</strong>
+                <strong>{{ number_format($kpis['satisfaccion_promedio'] ?? 0, 1) }}/5</strong>
                 <small>{{ $kpis['total_encuestas'] ?? 0 }} cuestionarios respondidos</small>
             </div>
         </div>
@@ -78,7 +78,7 @@
         <div class="col-xl-3 col-md-6 col-sm-12 mb-3">
             <div class="indicator-card">
                 <span class="indicator-label">Escala Likert</span>
-                <strong>1 - 10</strong>
+                <strong>1 - 5</strong>
                 <small>Satisfaccion por pregunta</small>
             </div>
         </div>
