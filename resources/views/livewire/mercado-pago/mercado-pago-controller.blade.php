@@ -35,6 +35,11 @@
                             <small>Public Key</small>
                             <code>{{ $publicKeyMasked }}</code>
                         </div>
+
+                        <div class="mp-credential-preview mt-2">
+                            <small>Clave de firma del webhook</small>
+                            <code>{{ $webhookSecretMasked }}</code>
+                        </div>
                     </div>
 
                     <div class="col-lg-8 col-md-12">
@@ -62,6 +67,20 @@
                                        autocomplete="new-password"
                                        placeholder="{{ $settingId ? 'Dejar vacio para conservar la public key actual' : 'Pega la Public Key' }}">
                                 @error('publicKey') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+
+                            <div class="col-md-12 form-group">
+                                <label>MERCADOPAGO_WEBHOOK_SECRET (clave secreta de firma, opcional)</label>
+                                <input type="password" class="form-control @error('webhookSecret') is-invalid @enderror"
+                                       wire:model.defer="webhookSecret"
+                                       autocomplete="new-password"
+                                       placeholder="{{ $webhookSecretMasked !== 'No configurada' ? 'Dejar vacio para conservar la clave actual' : 'Pega la clave secreta del webhook' }}">
+                                <small class="text-muted d-block mt-1">
+                                    Se copia en Mercado Pago, Tus integraciones, Webhooks, Configurar notificaciones.
+                                    Con la clave guardada, el sistema rechaza los avisos que no traigan una firma valida.
+                                    Sin clave, no se valida la firma.
+                                </small>
+                                @error('webhookSecret') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
 
                             <div class="col-md-6 form-group">

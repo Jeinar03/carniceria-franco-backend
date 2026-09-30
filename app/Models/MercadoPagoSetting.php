@@ -16,6 +16,7 @@ class MercadoPagoSetting extends Model
         'name',
         'access_token',
         'public_key',
+        'webhook_secret',
         'sandbox',
         'active',
     ];
@@ -28,6 +29,7 @@ class MercadoPagoSetting extends Model
     protected $hidden = [
         'access_token',
         'public_key',
+        'webhook_secret',
     ];
 
     public function setAccessTokenAttribute($value): void
@@ -50,6 +52,16 @@ class MercadoPagoSetting extends Model
         return $this->decryptCredential($value);
     }
 
+    public function setWebhookSecretAttribute($value): void
+    {
+        $this->attributes['webhook_secret'] = $value ? Crypt::encryptString($value) : null;
+    }
+
+    public function getWebhookSecretAttribute($value): ?string
+    {
+        return $this->decryptCredential($value);
+    }
+
     public static function active(): ?self
     {
         return self::where('active', true)->latest()->first();
@@ -66,6 +78,9 @@ class MercadoPagoSetting extends Model
             'public_key' => $setting && $setting->public_key
                 ? $setting->public_key
                 : config('mercadopago.public_key'),
+            'webhook_secret' => $setting && $setting->webhook_secret
+                ? $setting->webhook_secret
+                : config('mercadopago.webhook_secret'),
             'sandbox' => $setting
                 ? (bool) $setting->sandbox
                 : (bool) config('mercadopago.sandbox'),

@@ -470,6 +470,11 @@ class MercadoPagoController extends Controller
             return response()->json(['error' => 'Mercado Pago no configurado'], 503);
         }
 
+        // Si hay clave de firma guardada, el aviso debe venir firmado por Mercado Pago.
+        if ($this->verificarFirma($request) === 'invalida') {
+            return response()->json(['error' => 'Firma no valida'], 401);
+        }
+
         // Webhooks: {"type":"payment","data":{"id":"123"}}. IPN: ?topic=payment&id=123.
         $type      = $request->input('type', $request->input('topic'));
         $paymentId = $request->input('data.id', $request->input('id'));
@@ -497,6 +502,85 @@ class MercadoPagoController extends Controller
             // 500 para que Mercado Pago reintente; el detalle queda solo en el log.
             return response()->json(['error' => 'Error al procesar la notificación'], 500);
         }
+    }
+
+    /**
+     * Revisa la firma (x-signature) del aviso. Devuelve 'sin_clave' (no hay clave guardada:
+     * no se valida nada, como antes), 'valida' o 'invalida'. Siempre deja en el log si el
+     * aviso traia firma, sin escribir nunca la clave ni la firma.
+     */
+    private function verificarFirma(Request $request): string
+    {
+        $secreto = MercadoPagoSetting::credentials()['webhook_secret'] ?? null;
+        $xSignature = (string) $request->header('x-signature', '');
+        $requestId = $request->header('x-request-id');
+
+        $resultado = 'sin_clave';
+        if ($secreto) {
+            $resultado = $this->firmaEsValida($request, (string) $secreto, $xSignature, $requestId) ? 'valida' : 'invalida';
+        }
+
+        $datos = [
+            'clave_configurada' => (bool) $secreto,
+            'trae_x_signature' => $xSignature !== '',
+            'trae_x_request_id' => $requestId !== null && $requestId !== '',
+            'resultado' => $resultado,
+        ];
+
+        if ($resultado === 'invalida') {
+            Log::warning('Webhook rechazado por firma', $datos);
+        } else {
+            Log::info('Webhook firma', $datos);
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Mercado Pago firma con HMAC-SHA256 (hex) el texto: id:{data.id};request-id:{x-request-id};ts:{ts};
+     * usando la clave secreta. Si el aviso no trae request-id o data.id, esa parte se omite.
+     */
+    private function firmaEsValida(Request $request, string $secreto, string $xSignature, ?string $requestId): bool
+    {
+        if ($xSignature === '') {
+            return false;
+        }
+
+        $ts = null;
+        $v1 = null;
+        foreach (explode(',', $xSignature) as $parte) {
+            $par = explode('=', trim($parte), 2);
+            if (count($par) !== 2) {
+                continue;
+            }
+            if ($par[0] === 'ts') {
+                $ts = trim($par[1]);
+            } elseif ($par[0] === 'v1') {
+                $v1 = trim($par[1]);
+            }
+        }
+
+        if ($ts === null || $ts === '' || $v1 === null || $v1 === '') {
+            return false;
+        }
+
+        $dataId = $this->dataIdDeLaUrl($request) ?? (string) $request->input('data.id', '');
+
+        $manifiesto = ($dataId !== '' ? 'id:' . strtolower($dataId) . ';' : '')
+            . ($requestId !== null && $requestId !== '' ? 'request-id:' . $requestId . ';' : '')
+            . 'ts:' . $ts . ';';
+
+        return hash_equals(hash_hmac('sha256', $manifiesto, $secreto), strtolower($v1));
+    }
+
+    /** data.id viene en la URL (?data.id=123). PHP cambia el punto por guion bajo, por eso se lee a mano. */
+    private function dataIdDeLaUrl(Request $request): ?string
+    {
+        if (preg_match('/(?:^|&)data\.id=([^&]*)/', (string) $request->server('QUERY_STRING'), $m)) {
+            return urldecode($m[1]);
+        }
+
+        return null;
     }
 
     /**
