@@ -68,7 +68,7 @@ class CircuitoCorreosTest extends TestCase
         return Sale::findOrFail($res->json('data.id'));
     }
 
-    public function test_la_compra_envia_el_correo_de_confirmacion_al_cliente(): void
+    public function test_la_compra_por_transferencia_avisa_que_se_recibio_el_pedido(): void
     {
         Mail::fake();
 
@@ -77,7 +77,7 @@ class CircuitoCorreosTest extends TestCase
         Mail::assertSent(OrderStatusMail::class, 1);
         Mail::assertSent(OrderStatusMail::class, function ($mail) {
             return $mail->hasTo('juanita@test.com')
-                && $mail->statusConfig['subject'] === 'Confirmación de compra - Carnicería Franko';
+                && $mail->statusConfig['subject'] === 'Recibimos tu pedido - Carnicería Franko';
         });
     }
 

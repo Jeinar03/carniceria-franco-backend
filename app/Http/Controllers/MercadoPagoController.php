@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleDetail;
 use App\Services\InventoryService;
+use App\Services\OrderNotificationService;
 use App\Services\PricingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -544,7 +545,9 @@ class MercadoPagoController extends Controller
      */
     private function procesarPagoAprobado(Sale $venta, $payment): bool
     {
-        return DB::transaction(function () use ($venta, $payment) {
+        $recienCompletada = false;
+
+        $resultado = DB::transaction(function () use ($venta, $payment, &$recienCompletada) {
             $venta = Sale::whereKey($venta->id)->lockForUpdate()->firstOrFail();
 
             if ($venta->estatus === 'completada') {
@@ -611,8 +614,20 @@ class MercadoPagoController extends Controller
                 'total'      => $venta->total,
             ]);
 
+            $recienCompletada = true;
+
             return true;
         });
+
+        // Correo de confirmacion fuera de la transaccion y solo cuando la venta acaba de completarse:
+        // webhook y confirm-payment pueden llegar juntos y el segundo encuentra la venta ya completada.
+        if ($recienCompletada) {
+            OrderNotificationService::sendPurchaseCompletedNotification(
+                Sale::with(['customer', 'details'])->find($venta->id)
+            );
+        }
+
+        return $resultado;
     }
 
     /**
