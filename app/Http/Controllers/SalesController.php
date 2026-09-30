@@ -63,16 +63,15 @@ class SalesController extends Controller
 
         $validator = Validator::make($request->all(), [
             'customer_id' => 'required|exists:customers,id',
-            'metodo_pago' => 'required|in:efectivo,tarjeta,transferencia,credito,mercado_pago',
+            // La tienda solo ofrece transferencia por esta ruta (Mercado Pago tiene la suya).
+            // Efectivo, tarjeta y credito se capturan desde el panel de Despachos.
+            'metodo_pago' => 'required|in:transferencia',
             'productos' => 'required|array|min:1',
             'productos.*.product_id' => 'required',
             'productos.*.cantidad' => 'required|numeric|min:0.01',
             'productos.*.monto_pesos' => 'nullable|numeric|min:0', // Para venta por monto
-            'descuento' => 'nullable|numeric|min:0',
             'notas' => 'nullable|string',
             'fecha_entrega' => 'nullable|date|after_or_equal:today', // Pedido para un día posterior (opcional)
-            'mercadopago_payment_id' => 'nullable|string', // ID del pago de MercadoPago
-            'mercadopago_status' => 'nullable|string', // Estado del pago de MercadoPago
         ]);
 
         if ($validator->fails()) {
@@ -142,7 +141,10 @@ class SalesController extends Controller
             }
 
             // Carne fresca sin procesar: IVA tasa 0% (art. 2-A LIVA). No se cobra impuesto.
-            $descuento = $request->descuento ?? 0;
+            // El descuento (mayoristas) lo decide el servidor, nunca el navegador.
+            $porcentaje = $this->pricing->porcentajeDescuentoParaCliente($request->user());
+            $subtotal = round($subtotal, 2);
+            $descuento = round($subtotal * $porcentaje / 100, 2);
             $impuestos = 0;
             $total = $subtotal - $descuento;
 
@@ -161,12 +163,6 @@ class SalesController extends Controller
                 'estado_envio' => 'Pendiente', // Estado inicial para seguimiento
                 'transferencia_estado' => $request->metodo_pago === 'transferencia' ? 'pendiente' : null,
             ];
-
-            // Agregar información de Mercado Pago si existe
-            if ($request->metodo_pago === 'mercado_pago') {
-                $saleData['mercadopago_payment_id'] = $request->mercadopago_payment_id;
-                $saleData['mercadopago_status'] = $request->mercadopago_status;
-            }
 
             $sale = Sale::create($saleData);
 
