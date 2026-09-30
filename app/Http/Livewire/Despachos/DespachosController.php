@@ -1254,6 +1254,9 @@ class DespachosController extends Component
             return;
         }
 
+        // El correo al cliente solo sale cuando la decision cambia (aprobar dos veces no lo repite).
+        $decisionCambio = $sale->transferencia_estado !== $decision;
+
         $sale->transferencia_estado = $decision;
         $sale->transferencia_validada_at = now();
         $sale->transferencia_validada_por = auth()->id();
@@ -1282,6 +1285,12 @@ class DespachosController extends Component
         }
 
         $sale->save();
+
+        if ($decisionCambio && $sale->customer_id) {
+            $decision === 'aprobada'
+                ? OrderNotificationService::sendTransferApprovedNotification($sale)
+                : OrderNotificationService::sendTransferRejectedNotification($sale);
+        }
 
         $this->transferValidationData['transferencia_estado'] = $sale->transferencia_estado;
 

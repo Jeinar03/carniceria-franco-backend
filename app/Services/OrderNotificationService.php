@@ -73,6 +73,38 @@ class OrderNotificationService
                 'next_step' => 'Por favor, mantente disponible para recibir tu pedido.',
                 'estimated_time' => 'El tiempo de llegada dependerá de la distancia y las condiciones del tráfico'
             ],
+            // Transferencia registrada: el pago todavia no se valida, asi que NO es una compra completada.
+            'recibido_transferencia' => [
+                'subject' => 'Recibimos tu pedido - Carnicería Franko',
+                'title' => 'Recibimos tu pedido',
+                'status_display' => 'Pendiente de validar la transferencia',
+                'message' => 'Gracias por tu pedido en Carnicería Franko. Ya lo tenemos registrado y estamos por validar tu transferencia para empezar a prepararlo. Si todavía no subiste tu comprobante, puedes hacerlo desde "Mis compras" en la tienda.',
+                'color' => '#ffc107',
+                'icon' => '',
+                'next_step' => 'Cuando confirmemos tu pago te avisaremos por correo.',
+                'estimated_time' => 'La validación de la transferencia se hace en horario de atención.'
+            ],
+            'transferencia_aprobada' => [
+                'subject' => 'Confirmamos tu pago - Carnicería Franko',
+                'title' => 'Confirmamos tu pago',
+                'status_display' => 'Pago confirmado',
+                'message' => 'Validamos tu transferencia: tu pago quedó confirmado y tu pedido pasa a preparación. Gracias por tu compra.',
+                'color' => '#28a745',
+                'icon' => '',
+                'next_step' => 'Te avisaremos cuando tu pedido salga en camino.',
+                'estimated_time' => 'Te mantendremos informado de cada paso de tu pedido.'
+            ],
+            // Siempre generico: nunca se incluye el motivo que escribio el empleado en el panel.
+            'transferencia_rechazada' => [
+                'subject' => 'No pudimos validar tu transferencia - Carnicería Franko',
+                'title' => 'No pudimos validar tu transferencia',
+                'status_display' => 'Transferencia no validada',
+                'message' => 'No pudimos validar tu transferencia con el comprobante que recibimos. Tu pedido sigue registrado, pero no lo prepararemos hasta confirmar el pago.',
+                'color' => '#dc3545',
+                'icon' => '',
+                'next_step' => 'Puedes subir otro comprobante desde "Mis compras" en la tienda o escribirnos por WhatsApp.',
+                'estimated_time' => 'Si ya pagaste y crees que es un error, escríbenos y lo revisamos.'
+            ],
             'completada' => [
                 'subject' => 'Confirmación de compra - Carnicería Franko',
                 'title' => 'Compra realizada exitosamente',
@@ -113,17 +145,37 @@ class OrderNotificationService
     }
 
     /**
-     * Enviar notificación de compra completada (para ventas API)
+     * Correo al registrar una compra (tienda o panel). Una transferencia que aun no se valida manda
+     * "Recibimos tu pedido"; cualquier otra compra ya pagada manda "Confirmacion de compra".
      */
     public static function sendPurchaseCompletedNotification(Sale $sale)
     {
-        // Verificar que el cliente tenga email
+        $pendienteDeValidar = $sale->metodo_pago === 'transferencia' && $sale->transferencia_estado !== 'aprobada';
+
+        return self::enviarCorreo($sale, $pendienteDeValidar ? 'recibido_transferencia' : 'completada');
+    }
+
+    /** Correo cuando el panel aprueba la transferencia. */
+    public static function sendTransferApprovedNotification(Sale $sale)
+    {
+        return self::enviarCorreo($sale, 'transferencia_aprobada');
+    }
+
+    /** Correo cuando el panel rechaza la transferencia. Es generico: no lleva el motivo del empleado. */
+    public static function sendTransferRejectedNotification(Sale $sale)
+    {
+        return self::enviarCorreo($sale, 'transferencia_rechazada');
+    }
+
+    private static function enviarCorreo(Sale $sale, string $clave): bool
+    {
+        // Sin cliente (venta de mostrador) o sin correo no hay a quien avisar.
         if (!$sale->customer || !$sale->customer->correo) {
             return false;
         }
 
         try {
-            $statusConfig = self::getStatusConfig('completada');
+            $statusConfig = self::getStatusConfig($clave);
 
             if (!$statusConfig) {
                 return false;
@@ -135,18 +187,8 @@ class OrderNotificationService
 
             return true;
         } catch (\Exception $e) {
-            Log::error('Error enviando notificación de compra completada: ' . $e->getMessage());
+            Log::error("Error enviando el correo '{$clave}' del pedido: " . $e->getMessage());
             return false;
         }
-    }
-
-    /**
-     * Verificar si debe enviar notificación (evitar spam)
-     */
-    public static function shouldSendNotification($estadoAnterior, $estadoNuevo)
-    {
-        $estadosNotificables = ['Procesando', 'Listo_para_enviar', 'Enviado'];
-
-        return in_array($estadoNuevo, $estadosNotificables) && $estadoAnterior !== $estadoNuevo;
     }
 }
