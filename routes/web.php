@@ -5,6 +5,7 @@ use App\Http\Controllers\SalesController;
 use App\Http\Livewire\Categorias\CategoriasController;
 use App\Http\Livewire\Clientes\ClientesController;
 use App\Http\Livewire\Dash;
+use App\Http\Livewire\AvisosPedidos\AvisosPedidosController;
 use App\Http\Livewire\Despachos\DespachosController;
 use App\Http\Livewire\Logs\LogsController;
 use App\Http\Livewire\Notificaciones\NotificacionesController;
@@ -52,6 +53,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('roles', RolesController::class);
             Route::get('permisos', PermisosController::class);
             Route::get('notificaciones', NotificacionesController::class);
+            Route::get('avisos-pedidos', AvisosPedidosController::class);
 
         });
         Route::get('sitio', SitioController::class);

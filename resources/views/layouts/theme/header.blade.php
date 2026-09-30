@@ -57,6 +57,10 @@
                 </div>
 
                 <div class="ml-auto d-flex align-items-center user-profile-header">
+                    @if($user)
+                        @livewire('despachos.pedidos-por-terminar')
+                    @endif
+
                     <div class="dropdown zero-stock-header mr-3">
                         <button class="btn btn-outline-danger btn-sm zero-stock-trigger" type="button"
                                 id="zeroStockDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"

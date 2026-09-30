@@ -217,6 +217,19 @@ class MenuConfig
                         ]
                     ],
                     [
+                        'url' => 'sistema/avisos-pedidos',
+                        'title' => 'Avisos de pedidos',
+                        'gradient' => 'linear-gradient(135deg, #f7971e 0%, #ffd200 100%)',
+                        'shadow' => 'rgba(247, 151, 30, 0.3)',
+                        'icon' => [
+                            'name' => 'feather-clock',
+                            'paths' => [
+                                '<circle cx="12" cy="12" r="10"></circle>',
+                                '<polyline points="12 6 12 12 16 14"></polyline>'
+                            ]
+                        ]
+                    ],
+                    [
                         'url' => 'sistema/mercado-pago',
                         'title' => 'Mercado Pago',
                         'gradient' => 'linear-gradient(135deg, #009ee3 0%, #21d4fd 100%)',

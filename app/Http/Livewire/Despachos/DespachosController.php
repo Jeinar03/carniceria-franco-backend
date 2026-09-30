@@ -1412,8 +1412,7 @@ class DespachosController extends Component
 
     public function render()
     {
-        $baseQuery = Sale::with(['customer', 'details'])
-            ->whereIn('estado_envio', [Sale::ENVIO_PENDIENTE, Sale::ENVIO_PROCESANDO, Sale::ENVIO_LISTO]);
+        $baseQuery = Sale::with(['customer', 'details'])->enColaDespacho();
 
         // Pedidos programados: fecha_entrega en un día posterior a hoy. Se
         // muestran aparte y no en la lista de despachos del día hasta que llega su fecha.
