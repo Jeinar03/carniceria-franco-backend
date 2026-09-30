@@ -73,7 +73,7 @@ class ApiOwnershipTest extends TestCase
         $b = $this->cliente('b@test.com');
         $ventaDeB = Sale::create([
             'customer_id' => $b->id,
-            'metodo_pago' => 'efectivo',
+            'metodo_pago' => 'transferencia',
             'total' => 100,
             'estatus' => 'completada',
             'fecha_venta' => now(),
@@ -111,7 +111,7 @@ class ApiOwnershipTest extends TestCase
 
         $res = $this->postJson('/api/v1/ventas', [
             'customer_id' => $b->id, // <- intento de spoofing
-            'metodo_pago' => 'efectivo',
+            'metodo_pago' => 'transferencia',
             'productos' => [
                 ['product_id' => $productoId, 'cantidad' => 1],
             ],
@@ -130,7 +130,7 @@ class ApiOwnershipTest extends TestCase
         Sanctum::actingAs($a, ['cliente']);
 
         $res = $this->postJson('/api/v1/ventas', [
-            'metodo_pago' => 'efectivo',
+            'metodo_pago' => 'transferencia',
             'productos' => [
                 ['product_id' => $producto->id, 'cantidad' => 2],
             ],
