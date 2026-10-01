@@ -26,9 +26,6 @@ class CustomersController extends Controller
             'estado' => 'nullable|string',
             'codigo_postal' => 'nullable|string',
             'rfc' => 'nullable|string',
-            'tipo_cliente' => 'nullable|in:minorista,mayorista,distribuidor',
-            'limite_credito' => 'nullable|numeric|min:0',
-            'descuento_preferencial' => 'nullable|numeric|min:0|max:100',
         ], [
             'nombre.required' => 'Ingresa tu nombre',
             'apellido.required' => 'Ingresa tu apellido',
@@ -63,10 +60,11 @@ class CustomersController extends Controller
                 'codigo_postal' => $request->codigo_postal,
                 'pais' => $request->pais ?? 'México',
                 'rfc' => $request->rfc,
-                'tipo_cliente' => $request->tipo_cliente ?? 'minorista',
-                'estatus' => $request->estatus ?? 'activo',
-                'limite_credito' => $request->limite_credito ?? 0,
-                'descuento_preferencial' => $request->descuento_preferencial ?? 0,
+                // Tipo, estatus, credito y descuento los define solo el administrador desde el panel.
+                'tipo_cliente' => 'minorista',
+                'estatus' => 'activo',
+                'limite_credito' => 0,
+                'descuento_preferencial' => 0,
                 'notas' => $request->notas,
             ]);
 
@@ -231,9 +229,6 @@ class CustomersController extends Controller
             'codigo_postal' => 'nullable|string',
             'pais' => 'nullable|string',
             'rfc' => 'nullable|string',
-            'tipo_cliente' => 'nullable|in:minorista,mayorista,distribuidor',
-            'limite_credito' => 'nullable|numeric|min:0',
-            'descuento_preferencial' => 'nullable|numeric|min:0|max:100',
             'notas' => 'nullable|string',
             'password' => 'nullable|string|min:6',
         ]);
@@ -271,9 +266,6 @@ class CustomersController extends Controller
                 'codigo_postal',
                 'pais',
                 'rfc',
-                'tipo_cliente',
-                'limite_credito',
-                'descuento_preferencial',
                 'notas',
             ];
 

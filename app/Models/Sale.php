@@ -126,6 +126,13 @@ class Sale extends Model
         return $query->whereDate('fecha_entrega', '>', now()->toDateString());
     }
 
+    // Scope: ventas en la cola de Despachos (sin enviar ni entregar) que no estan canceladas
+    public function scopeEnColaDespacho($query)
+    {
+        return $query->whereIn('estado_envio', [self::ENVIO_PENDIENTE, self::ENVIO_PROCESANDO, self::ENVIO_LISTO])
+            ->where('estatus', '!=', self::ESTATUS_CANCELADA);
+    }
+
     // Scope para pedidos de entrega inmediata (sin fecha_entrega o ya vencida/hoy)
     public function scopeEntregaInmediata($query)
     {

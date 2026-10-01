@@ -7,9 +7,12 @@ class MenuConfig
     public static function getAllowedRoutesByRole()
     {
         return [
-            'ADMIN' => ['*'],
-            'EMPLOYEE' => [
+            'Admin' => ['*'],
+            'Cajero' => [
                 'admin/ventas',
+                'clientes/despachos',
+            ],
+            'Despachador' => [
                 'clientes/despachos',
             ],
         ];
@@ -217,6 +220,19 @@ class MenuConfig
                         ]
                     ],
                     [
+                        'url' => 'sistema/avisos-pedidos',
+                        'title' => 'Avisos de pedidos',
+                        'gradient' => 'linear-gradient(135deg, #f7971e 0%, #ffd200 100%)',
+                        'shadow' => 'rgba(247, 151, 30, 0.3)',
+                        'icon' => [
+                            'name' => 'feather-clock',
+                            'paths' => [
+                                '<circle cx="12" cy="12" r="10"></circle>',
+                                '<polyline points="12 6 12 12 16 14"></polyline>'
+                            ]
+                        ]
+                    ],
+                    [
                         'url' => 'sistema/mercado-pago',
                         'title' => 'Mercado Pago',
                         'gradient' => 'linear-gradient(135deg, #009ee3 0%, #21d4fd 100%)',
@@ -233,21 +249,30 @@ class MenuConfig
             ]
         ];
 
-        return self::filterMenuItemsByRole($items, self::resolveCurrentRoleKey());
+        return self::filterMenuItemsByRole($items, self::getVisibleRoutesForCurrentUser());
     }
 
+    /** Rutas del menu que puede ver el usuario actual: la suma de las de todos sus roles de Spatie. */
     public static function getVisibleRoutesForCurrentUser()
     {
-        $roleKey = self::resolveCurrentRoleKey();
-        $routes = self::getAllowedRoutesByRole()[$roleKey] ?? [];
+        $user = auth()->user();
 
-        return $routes;
+        if (!$user) {
+            return [];
+        }
+
+        $porRol = self::getAllowedRoutesByRole();
+        $routes = [];
+
+        foreach ($user->getRoleNames() as $rol) {
+            $routes = array_merge($routes, $porRol[$rol] ?? []);
+        }
+
+        return array_values(array_unique($routes));
     }
 
-    private static function filterMenuItemsByRole($items, $roleKey)
+    private static function filterMenuItemsByRole($items, $allowedRoutes)
     {
-        $allowedRoutes = self::getAllowedRoutesByRole()[$roleKey] ?? [];
-
         if (in_array('*', $allowedRoutes, true)) {
             return $items;
         }
@@ -267,22 +292,6 @@ class MenuConfig
         }
 
         return $filteredItems;
-    }
-
-    private static function resolveCurrentRoleKey()
-    {
-        if (!auth()->check()) {
-            return 'EMPLOYEE';
-        }
-
-        $user = auth()->user();
-
-        $profile = strtoupper((string) ($user->profile ?? ''));
-        if (in_array($profile, ['ADMIN', 'EMPLOYEE'], true)) {
-            return $profile;
-        }
-
-        return 'EMPLOYEE';
     }
 
     public static function renderIcon($icon, $size = '22')

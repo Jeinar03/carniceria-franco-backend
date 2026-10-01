@@ -305,6 +305,13 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        @if ($abrirEntrada)
+        // auto-abrir entrada desde Sin stock
+        $('#entryModal').one('shown.bs.modal', function () {
+            $('#entryModal input[type=number]').first().trigger('focus')
+        })
+        $('#entryModal').modal('show')
+        @endif
         window.livewire.on('show-entry-modal', function () { $('#entryModal').modal('show') })
         window.livewire.on('hide-entry-modal', function () { $('#entryModal').modal('hide') })
         window.livewire.on('show-inventory-detail-modal', function () { $('#inventoryDetailModal').modal('show') })
