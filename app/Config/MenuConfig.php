@@ -7,9 +7,12 @@ class MenuConfig
     public static function getAllowedRoutesByRole()
     {
         return [
-            'ADMIN' => ['*'],
-            'EMPLOYEE' => [
+            'Admin' => ['*'],
+            'Cajero' => [
                 'admin/ventas',
+                'clientes/despachos',
+            ],
+            'Despachador' => [
                 'clientes/despachos',
             ],
         ];
@@ -246,21 +249,30 @@ class MenuConfig
             ]
         ];
 
-        return self::filterMenuItemsByRole($items, self::resolveCurrentRoleKey());
+        return self::filterMenuItemsByRole($items, self::getVisibleRoutesForCurrentUser());
     }
 
+    /** Rutas del menu que puede ver el usuario actual: la suma de las de todos sus roles de Spatie. */
     public static function getVisibleRoutesForCurrentUser()
     {
-        $roleKey = self::resolveCurrentRoleKey();
-        $routes = self::getAllowedRoutesByRole()[$roleKey] ?? [];
+        $user = auth()->user();
 
-        return $routes;
+        if (!$user) {
+            return [];
+        }
+
+        $porRol = self::getAllowedRoutesByRole();
+        $routes = [];
+
+        foreach ($user->getRoleNames() as $rol) {
+            $routes = array_merge($routes, $porRol[$rol] ?? []);
+        }
+
+        return array_values(array_unique($routes));
     }
 
-    private static function filterMenuItemsByRole($items, $roleKey)
+    private static function filterMenuItemsByRole($items, $allowedRoutes)
     {
-        $allowedRoutes = self::getAllowedRoutesByRole()[$roleKey] ?? [];
-
         if (in_array('*', $allowedRoutes, true)) {
             return $items;
         }
@@ -280,22 +292,6 @@ class MenuConfig
         }
 
         return $filteredItems;
-    }
-
-    private static function resolveCurrentRoleKey()
-    {
-        if (!auth()->check()) {
-            return 'EMPLOYEE';
-        }
-
-        $user = auth()->user();
-
-        $profile = strtoupper((string) ($user->profile ?? ''));
-        if (in_array($profile, ['ADMIN', 'EMPLOYEE'], true)) {
-            return $profile;
-        }
-
-        return 'EMPLOYEE';
     }
 
     public static function renderIcon($icon, $size = '22')

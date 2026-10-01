@@ -28,6 +28,12 @@ class LoginController extends Controller
      */
     protected $redirectTo = RouteServiceProvider::HOME;
 
+    /** Cada rol entra a su primera pantalla permitida. */
+    protected function redirectTo()
+    {
+        return \App\Support\PanelRoles::homeUrl(auth()->user());
+    }
+
     /**
      * Create a new controller instance.
      *

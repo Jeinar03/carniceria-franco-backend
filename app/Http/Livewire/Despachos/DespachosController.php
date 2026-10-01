@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Despachos;
 
+use App\Http\Livewire\Concerns\RequiresPanelRole;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Sale;
@@ -21,6 +22,7 @@ use Throwable;
 class DespachosController extends Component
 {
     use WithPagination;
+    use RequiresPanelRole;
 
     public $pageTitle, $componentName;
     public $selectedSaleId = null;
@@ -145,6 +147,7 @@ class DespachosController extends Component
 
     public function openCreateOrderModal()
     {
+        $this->requirePanelRole('Admin', 'Cajero');
         $this->resetCreateOrderForm();
         $this->emit('show-create-order-modal');
     }
@@ -226,6 +229,7 @@ class DespachosController extends Component
      */
     public function guardarNuevoCliente()
     {
+        $this->requirePanelRole('Admin', 'Cajero');
         $this->validate([
             'nuevoNombre' => ['required', 'string', 'max:100'],
             'nuevoApellido' => ['required', 'string', 'max:100'],
@@ -421,6 +425,7 @@ class DespachosController extends Component
 
     public function createOrder()
     {
+        $this->requirePanelRole('Admin', 'Cajero');
         $validationError = $this->validateCreateOrderInputs();
         if ($validationError !== null) {
             $this->emit('despacho-error', $validationError);
@@ -580,6 +585,7 @@ class DespachosController extends Component
      */
     public function openEditOrderModal($saleId)
     {
+        $this->requirePanelRole('Admin', 'Cajero');
         $sale = Sale::with('details.product')->find($saleId);
 
         if (!$sale) {
@@ -858,6 +864,7 @@ class DespachosController extends Component
      */
     public function updateOrder()
     {
+        $this->requirePanelRole('Admin', 'Cajero');
         if (!$this->editingSaleId) {
             $this->emit('despacho-error', 'No hay un pedido seleccionado para editar');
             return;
@@ -1488,6 +1495,7 @@ class DespachosController extends Component
             'editProducts' => $editProducts,
             'actualCount' => $actualCount,
             'programadosCount' => $programadosCount,
+            'puedeCrearOrdenes' => \App\Support\PanelRoles::puedeCrearOrdenes(auth()->user()),
         ])->extends('layouts.theme.app')
             ->section('content');
     }

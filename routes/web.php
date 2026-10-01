@@ -31,43 +31,48 @@ Route::get('/', function () {
 Auth::routes(['register' => false]); // deshabilitamos el registro de nuevos users
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/home', Dash::class);
+    // Roles del panel: Admin, Cajero y Despachador. Ver Spec - Roles Admin, Cajero y Despachador.
+    Route::middleware('role:Admin')->group(function () {
+        Route::get('/home', Dash::class);
 
-    Route::prefix('admin')->group(function () {
-        Route::get('categorias', CategoriasController::class);
-        Route::get('productos', ProductosController::class);
-        Route::get('ventas', VentasController::class);
-        Route::get('inventario', InventarioController::class);
-        Route::get('indicadores', IndicadoresController::class);
-    });
+        Route::prefix('admin')->group(function () {
+            Route::get('categorias', CategoriasController::class);
+            Route::get('productos', ProductosController::class);
+            Route::get('inventario', InventarioController::class);
+            Route::get('indicadores', IndicadoresController::class);
+        });
 
-    Route::prefix('clientes')->group(function () {
-        Route::get('/', ClientesController::class);
-        Route::get('despachos', DespachosController::class);
-        Route::get('precios-especiales', PreciosEspecialesController::class)->middleware('role:Admin');
-    });
+        Route::prefix('clientes')->group(function () {
+            Route::get('/', ClientesController::class);
+            Route::get('precios-especiales', PreciosEspecialesController::class);
+        });
 
-    Route::prefix('sistema')->group(function () {
-        Route::get('users', UsersController::class);
-        Route::group(['middleware' => ['role:Admin']], function () {
+        Route::prefix('sistema')->group(function () {
+            Route::get('users', UsersController::class);
             Route::get('roles', RolesController::class);
             Route::get('permisos', PermisosController::class);
             Route::get('notificaciones', NotificacionesController::class);
             Route::get('avisos-pedidos', AvisosPedidosController::class);
-
+            Route::get('sitio', SitioController::class);
+            Route::get('mercado-pago', MercadoPagoLivewireController::class);
         });
-        Route::get('sitio', SitioController::class);
-        Route::get('mercado-pago', MercadoPagoLivewireController::class);
+
+        Route::get('logs', LogsController::class);
+
+        Route::get('admin/inventario/entradas/{date}/pdf', [InventoryReceiptController::class, 'entriesByDate'])
+            ->where('date', '\d{4}-\d{2}-\d{2}')
+            ->name('inventory.entries.pdf');
     });
 
-    Route::get('logs', LogsController::class);
+    Route::middleware('role:Admin|Cajero')->group(function () {
+        Route::get('admin/ventas', VentasController::class);
+    });
 
-    Route::get('admin/inventario/entradas/{date}/pdf', [InventoryReceiptController::class, 'entriesByDate'])
-        ->where('date', '\\d{4}-\\d{2}-\\d{2}')
-        ->name('inventory.entries.pdf');
+    Route::middleware('role:Admin|Cajero|Despachador')->group(function () {
+        Route::get('clientes/despachos', DespachosController::class);
 
-    Route::get('admin/despachos/ventas/{saleId}/evidencia-transferencia', [SalesController::class, 'showTransferEvidence'])
-        ->whereNumber('saleId')
-        ->name('admin.transfer-evidence.show');
-
+        Route::get('admin/despachos/ventas/{saleId}/evidencia-transferencia', [SalesController::class, 'showTransferEvidence'])
+            ->whereNumber('saleId')
+            ->name('admin.transfer-evidence.show');
+    });
 });

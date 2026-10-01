@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class TransferEvidencePreviewTest extends TestCase
@@ -26,6 +28,14 @@ class TransferEvidencePreviewTest extends TestCase
             $table->timestamps();
         });
 
+        // Tablas de roles (Spatie) para que el usuario pueda ser Admin.
+        Artisan::call('migrate', [
+            '--path' => 'database/migrations/2021_06_03_043450_create_permission_tables.php',
+            '--force' => true,
+            '--no-interaction' => true,
+        ]);
+        Role::findOrCreate('Admin', 'web');
+
         Schema::create('sales', function (Blueprint $table) {
             $table->id();
             $table->string('metodo_pago');
@@ -40,6 +50,7 @@ class TransferEvidencePreviewTest extends TestCase
         Storage::disk('public')->put('transferencias/evidencia.pdf', "%PDF-1.4\n% test evidence\n");
 
         $user = User::forceCreate(['name' => 'Administrador']);
+        $user->assignRole('Admin');
         DB::table('sales')->insert([
             'id' => 26,
             'metodo_pago' => 'transferencia',
@@ -70,6 +81,7 @@ class TransferEvidencePreviewTest extends TestCase
         Storage::disk('public')->put('transferencias/evidencia.png', $png);
 
         $user = User::forceCreate(['name' => 'Administrador']);
+        $user->assignRole('Admin');
         DB::table('sales')->insert([
             'id' => 27,
             'metodo_pago' => 'transferencia',

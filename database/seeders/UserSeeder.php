@@ -25,7 +25,7 @@ class UserSeeder extends Seeder
             'status' => 'ACTIVE',
             'password' => bcrypt('123')
         ]);
-        User::create([
+        $melisa = User::create([
             'name' => 'Melisa Albahat',
             'phone' => '3549873214',
             'email' => 'melisa@gmail.com',
@@ -34,8 +34,11 @@ class UserSeeder extends Seeder
             'password' => bcrypt('123')
         ]);
 
-        // crear role Administrador
-        $admin    = Role::create(['name' => 'Admin']);
+        // roles del panel (la migracion de roles ya los crea; findOrCreate evita duplicarlos)
+        $admin = Role::findOrCreate('Admin', 'web');
+        Role::findOrCreate('Cajero', 'web');
+        Role::findOrCreate('Despachador', 'web');
+        $melisa->assignRole('Cajero');
 
         // crear permisos componente categories
         Permission::create(['name' => 'Category_Create']);

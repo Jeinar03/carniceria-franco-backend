@@ -222,6 +222,7 @@ class SpecialPriceTest extends TestCase
             'email' => 'admin@test.com',
             'password' => Hash::make('secret'),
         ]);
+        $admin->assignRole('Admin');
         $cliente = $this->cliente('juanita@test.com');
         $producto = $this->productoNormal();
         $this->precioEspecial($cliente, $producto, 1.00);
