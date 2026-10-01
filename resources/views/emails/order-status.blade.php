@@ -334,6 +334,29 @@
                 <div class="time-estimate">{{ $config['estimated_time'] }}</div>
             </div>
 
+            <!-- Datos bancarios (solo en el correo de transferencia pendiente) -->
+            @if(!empty($datosBancarios))
+            <div class="address-card">
+                <h3>Datos para tu transferencia</h3>
+                <div class="address-info">
+                    @if(!empty($datosBancarios['banco']))
+                    <strong>Banco:</strong> {{ $datosBancarios['banco'] }}<br>
+                    @endif
+                    @if(!empty($datosBancarios['titular']))
+                    <strong>Titular:</strong> {{ $datosBancarios['titular'] }}<br>
+                    @endif
+                    @if(!empty($datosBancarios['cuenta']))
+                    <strong>Número de cuenta:</strong> {{ $datosBancarios['cuenta'] }}<br>
+                    @endif
+                    @if(!empty($datosBancarios['clabe']))
+                    <strong>CLABE interbancaria:</strong> {{ $datosBancarios['clabe'] }}<br>
+                    @endif
+                    <br>
+                    Pon tu número de pedido ({{ $order['folio'] }}) como concepto de la transferencia. Después sube tu comprobante desde "Mis compras" en la tienda.
+                </div>
+            </div>
+            @endif
+
             <!-- Customer Address -->
             @if($customer->direccion)
             <div class="address-card">

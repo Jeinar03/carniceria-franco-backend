@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Sale;
+use App\Models\SiteConfig;
 use App\Services\OrderNotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -27,6 +28,20 @@ class OrderStatusMail extends Mailable
     }
 
     /**
+     * Datos bancarios del sitio, solo para el correo que los pide (transferencia pendiente).
+     */
+    private function datosBancarios(): ?array
+    {
+        if (! ($this->statusConfig['mostrar_datos_bancarios'] ?? false)) {
+            return null;
+        }
+
+        $config = SiteConfig::where('activo', true)->first();
+
+        return $config ? $config->datosBancarios() : null;
+    }
+
+    /**
      * Build the message.
      */
     public function build()
@@ -38,7 +53,8 @@ class OrderStatusMail extends Mailable
                         'sale' => $this->sale,
                         'config' => $this->statusConfig,
                         'order' => $this->orderSummary,
-                        'customer' => $this->sale->customer
+                        'customer' => $this->sale->customer,
+                        'datosBancarios' => $this->datosBancarios()
                     ]);
     }
 }
