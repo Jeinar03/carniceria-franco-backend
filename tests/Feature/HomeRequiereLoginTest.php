@@ -51,6 +51,7 @@ class HomeRequiereLoginTest extends TestCase
             'email' => 'admin@test.com',
             'password' => Hash::make('secret'),
         ]);
+        $user->assignRole('Admin');
 
         $this->actingAs($user)->get('/home')->assertStatus(200)->assertSee('Dashboard');
     }

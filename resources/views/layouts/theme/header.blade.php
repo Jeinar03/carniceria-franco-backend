@@ -6,6 +6,7 @@
     $canDisableTwoFactor = \Illuminate\Support\Facades\Route::has('2fa.disable');
     $userImageUrl = null;
     $outOfStockProducts = collect();
+    $esAdminPanel = \App\Support\PanelRoles::esAdmin($user);
 
     if ($user) {
         $outOfStockProducts = \App\Models\Product::query()
@@ -36,7 +37,7 @@
         <div class="container-fluid">
             <div class="d-flex align-items-center w-100">
                 <div class="d-flex align-items-center flex-grow-1">
-                    <a href="{{ url('home') }}" class="d-flex align-items-center mr-2" aria-label="Ir al inicio">
+                    <a href="{{ \App\Support\PanelRoles::logoUrl($user) }}" class="d-flex align-items-center mr-2" aria-label="Ir al inicio">
                         <img src="{{ asset('images/logo.jpeg') }}" alt="Logo" class="header-logo">
                     </a>
 
@@ -79,14 +80,16 @@
                             </div>
                             <div class="zero-stock-scroll">
                                 @forelse($outOfStockProducts as $stockProduct)
-                                    <a href="{{ url('admin/inventario?rellenar=' . $stockProduct->id) }}" class="dropdown-item zero-stock-item">
+                                    <{{ $esAdminPanel ? 'a' : 'div' }} @if($esAdminPanel) href="{{ url('admin/inventario?rellenar=' . $stockProduct->id) }}" @endif class="dropdown-item zero-stock-item">
                                         <span class="zero-stock-icon"><i class="fas fa-cube"></i></span>
                                         <span class="zero-stock-info">
                                             <strong>{{ $stockProduct->nombre }}</strong>
                                             <small>{{ $stockProduct->codigo ?: 'Sin código' }} · {{ ucfirst($stockProduct->unidad_venta) }}</small>
                                         </span>
-                                        <span class="badge badge-primary">Rellenar</span>
-                                    </a>
+                                        @if($esAdminPanel)
+                                            <span class="badge badge-primary">Rellenar</span>
+                                        @endif
+                                    </{{ $esAdminPanel ? 'a' : 'div' }}>
                                 @empty
                                     <div class="zero-stock-empty">
                                         <i class="fas fa-check-circle text-success"></i>
@@ -94,7 +97,9 @@
                                     </div>
                                 @endforelse
                             </div>
-                            <a href="{{ url('admin/inventario') }}" class="zero-stock-footer">Ir a Inventario</a>
+                            @if($esAdminPanel)
+                                <a href="{{ url('admin/inventario') }}" class="zero-stock-footer">Ir a Inventario</a>
+                            @endif
                         </div>
                     </div>
 

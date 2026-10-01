@@ -2,6 +2,7 @@
 namespace App\Http\Livewire;
 
 use App\Models\User;
+use App\Support\PanelRoles;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -111,7 +112,7 @@ class UsersController extends Component
                 'password' => Hash::make((string) $this->password),
             ]);
 
-            $user->syncRoles([$this->resolveProfileValue($this->profile)]);
+            $user->syncRoles([$this->profile]);
 
             if ($this->hasNewImage()) {
                 $imageName = $this->storeImage();
@@ -137,6 +138,12 @@ class UsersController extends Component
 
         try {
             $user = User::findOrFail($this->selected_id);
+
+            if ($mensaje = $this->motivoParaNoCambiar($user, $this->profile, $this->resolveStatusValue($this->status))) {
+                $this->emit('user-withsales', $mensaje);
+                return;
+            }
+
             $previousImage = $user->image;
 
             $payload = $this->userPayload();
@@ -149,7 +156,7 @@ class UsersController extends Component
             }
 
             $user->update($payload);
-            $user->syncRoles([$this->resolveProfileValue($this->profile)]);
+            $user->syncRoles([$this->profile]);
 
             if ($this->hasNewImage() && $previousImage) {
                 $this->deleteImage($previousImage);
@@ -172,6 +179,11 @@ class UsersController extends Component
     public function destroy(User $user)
     {
         if ($user) {
+            if ($mensaje = $this->motivoParaNoBorrar($user)) {
+                $this->emit('user-withsales', $mensaje);
+                return;
+            }
+
             if ($user->image) {
                 $this->deleteImage($user->image);
             }
@@ -179,6 +191,55 @@ class UsersController extends Component
             $this->resetUI();
             $this->emit('user-deleted', 'Usuario eliminado');
         }
+    }
+
+    /** Admins con estatus ACTIVE, sin contar a $exceptoId. */
+    private function otrosAdminsActivos(int $exceptoId): int
+    {
+        return User::role(PanelRoles::ADMIN)
+            ->where('id', '!=', $exceptoId)
+            ->whereRaw('UPPER(status) = ?', ['ACTIVE'])
+            ->count();
+    }
+
+    /** Devuelve el motivo si el cambio dejaria al panel sin un Admin activo, o null si se puede. */
+    private function motivoParaNoCambiar(User $user, string $nuevoRol, string $nuevoEstatus): ?string
+    {
+        if (! $user->hasRole(PanelRoles::ADMIN)) {
+            return null;
+        }
+
+        $dejaDeSerAdmin = $nuevoRol !== PanelRoles::ADMIN;
+        $quedaBloqueado = $nuevoEstatus !== 'ACTIVE';
+
+        if (! $dejaDeSerAdmin && ! $quedaBloqueado) {
+            return null;
+        }
+
+        if ((int) $user->id === (int) auth()->id()) {
+            return $dejaDeSerAdmin
+                ? 'No puedes quitarte a ti mismo el rol de Admin.'
+                : 'No puedes bloquear tu propio usuario.';
+        }
+
+        if ($this->otrosAdminsActivos((int) $user->id) < 1) {
+            return 'Debe quedar al menos un Admin activo.';
+        }
+
+        return null;
+    }
+
+    private function motivoParaNoBorrar(User $user): ?string
+    {
+        if ((int) $user->id === (int) auth()->id()) {
+            return 'No puedes eliminar tu propio usuario.';
+        }
+
+        if ($user->hasRole(PanelRoles::ADMIN) && $this->otrosAdminsActivos((int) $user->id) < 1) {
+            return 'Debe quedar al menos un Admin activo.';
+        }
+
+        return null;
     }
 
     private function rules(int $ignoreId = 0): array
@@ -268,13 +329,7 @@ class UsersController extends Component
 
     private function resolveProfileValue($profile)
     {
-        $profileName = strtoupper(trim((string) $profile));
-
-        if (in_array($profileName, ['ADMIN', 'ADMINISTRADOR', 'ADMINISTRATOR'], true)) {
-            return 'ADMIN';
-        }
-
-        return 'EMPLOYEE';
+        return PanelRoles::perfilParaRol(trim((string) $profile));
     }
 
     private function resolveStatusValue($status)

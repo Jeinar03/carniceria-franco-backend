@@ -76,6 +76,7 @@
                                 @endif
                             </div>
                             <div class="col-md-5 col-sm-12 text-md-right text-left">
+                                @if($puedeCrearOrdenes)
                                 <button class="btn btn-success"
                                         wire:click="openCreateOrderModal"
                                         wire:loading.attr="disabled"
@@ -87,6 +88,7 @@
                                         <i class="fas fa-spinner fa-spin"></i> Abriendo...
                                     </span>
                                 </button>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -213,7 +215,7 @@
                                             </a>
                                         @endif
 
-                                        @if($venta->estatus !== 'cancelada')
+                                        @if($venta->estatus !== 'cancelada' && $puedeCrearOrdenes)
                                             <a href="javascript:void(0)" wire:click="openEditOrderModal({{ $venta->id }})"
                                                 wire:loading.attr="disabled"
                                                 wire:target="openEditOrderModal({{ $venta->id }})"
@@ -252,8 +254,10 @@
     </div>
     @include('livewire.despachos.modal')
     @include('livewire.despachos.transfer-validation-modal')
-    @include('livewire.despachos.create-order-modal')
-    @include('livewire.despachos.edit-order-modal')
+    @if($puedeCrearOrdenes)
+        @include('livewire.despachos.create-order-modal')
+        @include('livewire.despachos.edit-order-modal')
+    @endif
 </div>
 
 <style>

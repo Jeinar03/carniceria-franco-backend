@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Ventas;
 
+use App\Http\Livewire\Concerns\RequiresPanelRole;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Sale;
@@ -15,6 +16,7 @@ use Throwable;
 class VentasController extends Component
 {
     use WithPagination;
+    use RequiresPanelRole;
 
     private $perPage = 10;
 
@@ -101,6 +103,8 @@ class VentasController extends Component
 
     public function cancelSale($saleId)
     {
+        $this->requirePanelRole('Admin');
+
         try {
             DB::transaction(function () use ($saleId) {
                 $sale = Sale::with('details')->lockForUpdate()->find($saleId);

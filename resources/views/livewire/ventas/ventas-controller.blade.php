@@ -172,7 +172,7 @@
                                                 <i class="fas fa-spinner fa-spin"></i>
                                             </span>
                                         </button>
-                                        @if($venta->estatus != 'cancelada')
+                                        @if($venta->estatus != 'cancelada' && \App\Support\PanelRoles::esAdmin(auth()->user()))
                                             <button onclick="confirmCancel({{ $venta->id }}, this)"
                                                 class="btn btn-sm btn-outline-danger mtmobile" title="Cancelar">
                                                 <i class="fas fa-ban"></i>

@@ -47,11 +47,14 @@ class MostradorAutoEntregaTest extends TestCase
 
     private function admin(): User
     {
-        return User::create([
+        $admin = User::create([
             'name' => 'Admin',
             'email' => 'admin@test.com',
             'password' => Hash::make('secret'),
         ]);
+        $admin->assignRole('Admin');
+
+        return $admin;
     }
 
     private function cliente(): Customers
