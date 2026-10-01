@@ -14,10 +14,12 @@ class MercadoPagoController extends Component
     public $name = 'Configuracion principal';
     public $accessToken = '';
     public $publicKey = '';
+    public $webhookSecret = '';
     public $sandbox = true;
     public $active = true;
     public $accessTokenMasked = 'No configurada';
     public $publicKeyMasked = 'No configurada';
+    public $webhookSecretMasked = 'No configurada';
     public $settingId = null;
 
     public function mount(): void
@@ -69,6 +71,10 @@ class MercadoPagoController extends Component
                 $data['public_key'] = trim($this->publicKey);
             }
 
+            if (trim($this->webhookSecret) !== '') {
+                $data['webhook_secret'] = trim($this->webhookSecret);
+            }
+
             if ($data['active']) {
                 MercadoPagoSetting::query()
                     ->when($setting, fn ($query) => $query->where('id', '!=', $setting->id))
@@ -84,6 +90,7 @@ class MercadoPagoController extends Component
             $this->settingId = $setting->id;
             $this->accessToken = '';
             $this->publicKey = '';
+            $this->webhookSecret = '';
             $this->loadSetting();
 
             [$conectado, $mensaje] = $this->verifyConnection($setting);
@@ -142,5 +149,6 @@ class MercadoPagoController extends Component
         $this->active = (bool) $setting->active;
         $this->accessTokenMasked = MercadoPagoSetting::mask($setting->access_token);
         $this->publicKeyMasked = MercadoPagoSetting::mask($setting->public_key);
+        $this->webhookSecretMasked = MercadoPagoSetting::mask($setting->webhook_secret);
     }
 }
