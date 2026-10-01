@@ -21,6 +21,10 @@ class SiteConfig extends Model
         'facebook_url',
         'instagram_url',
         'whatsapp',
+        'banco',
+        'titular_cuenta',
+        'numero_cuenta',
+        'clabe',
         'horarios',
         'activo',
     ];
@@ -29,6 +33,22 @@ class SiteConfig extends Model
         'horarios' => 'array',
         'activo'   => 'boolean',
     ];
+
+    /**
+     * Datos bancarios capturados (solo los que no estan vacios), o null si no hay ninguno.
+     * Se usan para mostrar al cliente a donde transferir.
+     */
+    public function datosBancarios(): ?array
+    {
+        $datos = array_filter([
+            'banco' => $this->banco,
+            'titular' => $this->titular_cuenta,
+            'cuenta' => $this->numero_cuenta,
+            'clabe' => $this->clabe,
+        ], fn ($valor) => $valor !== null && $valor !== '');
+
+        return $datos ?: null;
+    }
 
     /**
      * URL completa del logo.

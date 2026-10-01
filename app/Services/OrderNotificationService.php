@@ -82,7 +82,9 @@ class OrderNotificationService
                 'color' => '#ffc107',
                 'icon' => '',
                 'next_step' => 'Cuando confirmemos tu pago te avisaremos por correo.',
-                'estimated_time' => 'La validación de la transferencia se hace en horario de atención.'
+                'estimated_time' => 'La validación de la transferencia se hace en horario de atención.',
+                // Este correo lleva los datos bancarios del sitio (si estan capturados).
+                'mostrar_datos_bancarios' => true
             ],
             'transferencia_aprobada' => [
                 'subject' => 'Confirmamos tu pago - Carnicería Franko',

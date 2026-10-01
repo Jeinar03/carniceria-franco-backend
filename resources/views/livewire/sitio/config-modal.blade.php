@@ -99,7 +99,7 @@
                                 <label class="cfg-label">Teléfono</label>
                                 <input type="text" class="form-control"
                                        wire:model.lazy="configTelefono"
-                                       placeholder="Ej: +54 9 11 1234-5678">
+                                       placeholder="Ej: 7531234567">
                             </div>
 
                             {{-- Redes sociales --}}
@@ -138,8 +138,57 @@
                                 </label>
                                 <input type="text" class="form-control"
                                        wire:model.lazy="configWhatsapp"
-                                       placeholder="Ej: 5491112345678">
-                                <small class="text-muted">Número con código de país, sin + ni espacios.</small>
+                                       placeholder="Ej: 7531234567">
+                                <small class="text-muted">Número de 10 dígitos, sin el código del país (la tienda le agrega el 52 sola).</small>
+                            </div>
+
+                            {{-- Datos bancarios --}}
+                            <div class="col-12 mt-1">
+                                <h6 class="cfg-section-title"><i class="fas fa-university mr-1"></i> Datos bancarios para transferencias</h6>
+                                <hr class="mt-1 mb-2">
+                                <small class="text-muted d-block mb-3">
+                                    Se muestran al cliente cuando paga por transferencia (carrito, Mis compras y correo). Si dejas todo vacío, no se muestra nada.
+                                </small>
+                            </div>
+
+                            <div class="col-md-6 form-group">
+                                <label class="cfg-label">Banco</label>
+                                <input type="text" class="form-control @error('configBanco') is-invalid @enderror"
+                                       wire:model.lazy="configBanco" maxlength="60"
+                                       placeholder="Ej: BBVA">
+                                @error('configBanco')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-6 form-group">
+                                <label class="cfg-label">Titular de la cuenta</label>
+                                <input type="text" class="form-control @error('configTitular') is-invalid @enderror"
+                                       wire:model.lazy="configTitular" maxlength="100"
+                                       placeholder="Nombre completo, como aparece en el banco">
+                                @error('configTitular')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-6 form-group">
+                                <label class="cfg-label">Número de cuenta</label>
+                                <input type="text" class="form-control @error('configNumeroCuenta') is-invalid @enderror"
+                                       wire:model.lazy="configNumeroCuenta" maxlength="24"
+                                       placeholder="Solo dígitos">
+                                @error('configNumeroCuenta')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-6 form-group">
+                                <label class="cfg-label">CLABE interbancaria</label>
+                                <input type="text" class="form-control @error('configClabe') is-invalid @enderror"
+                                       wire:model.lazy="configClabe" maxlength="24"
+                                       placeholder="18 dígitos">
+                                @error('configClabe')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
 
                         </div>

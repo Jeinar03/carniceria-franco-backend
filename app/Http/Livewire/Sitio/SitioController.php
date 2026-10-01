@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Sitio;
 
 use App\Models\SiteAlert;
+use App\Rules\ClabeInterbancaria;
 use App\Models\SiteConfig;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -27,6 +28,10 @@ class SitioController extends Component
     public $configFacebook   = '';
     public $configInstagram  = '';
     public $configWhatsapp   = '';
+    public $configBanco        = '';
+    public $configTitular      = '';
+    public $configNumeroCuenta = '';
+    public $configClabe        = '';
     public $configLogo       = null;
     public $configLogoActual = null;
     public $configHorarios   = [];
@@ -136,6 +141,10 @@ class SitioController extends Component
             $this->configFacebook   = $config->facebook_url  ?? '';
             $this->configInstagram  = $config->instagram_url ?? '';
             $this->configWhatsapp   = $config->whatsapp      ?? '';
+            $this->configBanco        = $config->banco          ?? '';
+            $this->configTitular      = $config->titular_cuenta ?? '';
+            $this->configNumeroCuenta = $config->numero_cuenta  ?? '';
+            $this->configClabe        = $config->clabe          ?? '';
             $this->configLogoActual = $config->logo;
             $this->configHorarios   = $this->normalizeHorarios($config->horarios);
         }
@@ -147,7 +156,15 @@ class SitioController extends Component
     {
         $this->configHorarios = $this->normalizeHorarios($this->configHorarios);
 
+        // La cuenta y la CLABE se escriben a veces con espacios o guiones: se limpian antes de validar.
+        $this->configNumeroCuenta = preg_replace('/[\s-]+/', '', (string) $this->configNumeroCuenta);
+        $this->configClabe        = preg_replace('/[\s-]+/', '', (string) $this->configClabe);
+
         $rules = [
+            'configBanco'        => 'nullable|string|max:60',
+            'configTitular'      => 'nullable|string|max:100',
+            'configNumeroCuenta' => ['nullable', 'regex:/^\d{6,20}$/'],
+            'configClabe'        => ['nullable', new ClabeInterbancaria()],
             'configNombre'    => 'required|string|max:100',
             'configDireccion' => 'nullable|string|max:255',
             'configCorreo'    => 'nullable|email|max:100',
@@ -168,6 +185,7 @@ class SitioController extends Component
         $this->validate($rules, [
             'configNombre.required' => 'El nombre de la configuración es obligatorio.',
             'configCorreo.email'    => 'El correo no tiene un formato válido.',
+            'configNumeroCuenta.regex' => 'El número de cuenta solo lleva dígitos (entre 6 y 20).',
             'configFacebook.url'    => 'La URL de Facebook no es válida.',
             'configInstagram.url'   => 'La URL de Instagram no es válida.',
             'configLogo.image'      => 'El logo debe ser una imagen.',
@@ -195,6 +213,10 @@ class SitioController extends Component
                 'facebook_url'  => $this->configFacebook   ?: null,
                 'instagram_url' => $this->configInstagram  ?: null,
                 'whatsapp'      => $this->configWhatsapp   ?: null,
+                'banco'          => $this->configBanco        ?: null,
+                'titular_cuenta' => $this->configTitular      ?: null,
+                'numero_cuenta'  => $this->configNumeroCuenta ?: null,
+                'clabe'          => $this->configClabe        ?: null,
                 'logo'          => $logoPath,
                 'horarios'      => $this->configHorarios,
             ];
@@ -261,6 +283,10 @@ class SitioController extends Component
         $this->configFacebook   = '';
         $this->configInstagram  = '';
         $this->configWhatsapp   = '';
+        $this->configBanco        = '';
+        $this->configTitular      = '';
+        $this->configNumeroCuenta = '';
+        $this->configClabe        = '';
         $this->configLogo       = null;
         $this->configLogoActual = null;
         $this->configActiveTab  = 'datos';
