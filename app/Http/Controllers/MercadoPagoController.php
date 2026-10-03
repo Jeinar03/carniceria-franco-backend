@@ -564,6 +564,16 @@ class MercadoPagoController extends Controller
         ];
 
         if ($resultado === 'invalida') {
+            // Para poder depurar sin la clave: qué aviso era y qué texto se firmó (ninguno es secreto).
+            $firma = $this->datosDeFirma($request, $xSignature, $requestId);
+            $datos += [
+                'tipo'         => $request->input('type', $request->input('topic')),
+                'accion'       => $request->input('action'),
+                'query'        => (string) $request->server('QUERY_STRING'),
+                'manifiesto'   => $firma['manifiesto'] ?? null,
+                'v1_recibido'  => $firma['v1'] ?? null,
+                'v1_calculado' => $firma ? substr(hash_hmac('sha256', $firma['manifiesto'], (string) $secreto), 0, 12) : null,
+            ];
             Log::warning('Webhook rechazado por firma', $datos);
         } else {
             Log::info('Webhook firma', $datos);
@@ -578,8 +588,25 @@ class MercadoPagoController extends Controller
      */
     private function firmaEsValida(Request $request, string $secreto, string $xSignature, ?string $requestId): bool
     {
-        if ($xSignature === '') {
+        $datos = $this->datosDeFirma($request, $xSignature, $requestId);
+
+        if ($datos === null) {
             return false;
+        }
+
+        return hash_equals(hash_hmac('sha256', $datos['manifiesto'], $secreto), strtolower($datos['v1']));
+    }
+
+    /**
+     * Texto que se firma (manifiesto) y firma recibida (v1), o null si el encabezado no es utilizable.
+     * Ninguno de los dos contiene la clave secreta.
+     *
+     * @return array{manifiesto: string, v1: string}|null
+     */
+    private function datosDeFirma(Request $request, string $xSignature, ?string $requestId): ?array
+    {
+        if ($xSignature === '') {
+            return null;
         }
 
         $ts = null;
@@ -597,7 +624,7 @@ class MercadoPagoController extends Controller
         }
 
         if ($ts === null || $ts === '' || $v1 === null || $v1 === '') {
-            return false;
+            return null;
         }
 
         $dataId = $this->dataIdDeLaUrl($request) ?? (string) $request->input('data.id', '');
@@ -606,7 +633,7 @@ class MercadoPagoController extends Controller
             . ($requestId !== null && $requestId !== '' ? 'request-id:' . $requestId . ';' : '')
             . 'ts:' . $ts . ';';
 
-        return hash_equals(hash_hmac('sha256', $manifiesto, $secreto), strtolower($v1));
+        return ['manifiesto' => $manifiesto, 'v1' => $v1];
     }
 
     /** data.id viene en la URL (?data.id=123). PHP cambia el punto por guion bajo, por eso se lee a mano. */
