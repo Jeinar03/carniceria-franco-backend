@@ -196,6 +196,19 @@
 
                     {{-- ─── Tab: Horarios ─── --}}
                     <div class="tab-pane fade {{ $configActiveTab === 'horarios' ? 'show active' : '' }}" id="cfgTabHorarios">
+                        <div class="custom-control custom-switch mb-1">
+                            <input type="checkbox"
+                                   class="custom-control-input"
+                                   id="configLimitarHorario"
+                                   wire:model="configLimitarHorario">
+                            <label class="custom-control-label font-weight-bold" for="configLimitarHorario">
+                                Limitar compras al horario de atención
+                            </label>
+                        </div>
+                        <p class="text-muted small mb-3">
+                            Apagado, la tienda deja comprar a cualquier hora (útil para pruebas).
+                            El horario se sigue mostrando a los clientes. Se evalúa en hora de México.
+                        </p>
                         <p class="text-muted small mb-3">
                             Configure el horario de atención para cada día de la semana.
                         </p>

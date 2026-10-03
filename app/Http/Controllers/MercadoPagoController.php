@@ -6,6 +6,7 @@ use App\Models\MercadoPagoSetting;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleDetail;
+use App\Models\SiteConfig;
 use App\Services\InventoryService;
 use App\Services\OrderNotificationService;
 use App\Services\PricingService;
@@ -81,6 +82,16 @@ class MercadoPagoController extends Controller
     {
         if (! $this->configured) {
             return $this->noConfigurado();
+        }
+
+        $atencion = SiteConfig::estadoDeAtencion();
+        if (! $atencion['abierto']) {
+            return response()->json([
+                'success' => false,
+                'status'  => 403,
+                'message' => 'La tienda está cerrada por horario de atención (hoy: ' . $atencion['horario'] . ').',
+                'data'    => null,
+            ], 403);
         }
 
         Log::info('═══════════════════════════════════════');

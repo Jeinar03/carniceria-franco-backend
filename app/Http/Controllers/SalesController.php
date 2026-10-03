@@ -6,6 +6,7 @@ use App\Models\Sale;
 use App\Models\SaleDetail;
 use App\Models\Product;
 use App\Models\Customers;
+use App\Models\SiteConfig;
 use App\Services\OrderNotificationService;
 use App\Services\InventoryService;
 use App\Services\PricingService;
@@ -57,6 +58,16 @@ class SalesController extends Controller
      */
     public function store(Request $request)
     {
+        $atencion = SiteConfig::estadoDeAtencion();
+        if (! $atencion['abierto']) {
+            return response()->json([
+                'success' => false,
+                'status' => 403,
+                'message' => 'La tienda está cerrada por horario de atención (hoy: ' . $atencion['horario'] . ').',
+                'data' => null,
+            ], 403);
+        }
+
         // La venta siempre se registra a nombre del cliente autenticado.
         // Se ignora cualquier customer_id que venga en el body.
         $request->merge(['customer_id' => $request->user()->id]);
