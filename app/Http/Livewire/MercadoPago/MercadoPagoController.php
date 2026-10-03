@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Http;
 use Livewire\Component;
 use Throwable;
 
+/**
+ * Sistema → Mercado Pago. Guarda varias configuraciones de credenciales (prueba y producción)
+ * y deja elegir cuál está en uso, sin volver a capturar nada. Solo una puede estar activa.
+ */
 class MercadoPagoController extends Component
 {
     public $pageTitle = 'Mercado Pago';
@@ -15,7 +19,8 @@ class MercadoPagoController extends Component
     public $accessToken = '';
     public $publicKey = '';
     public $webhookSecret = '';
-    public $sandbox = true;
+    // 1 = Prueba, 0 = Producción (entero porque se enlaza a un <select>; un booleano no empata con sus opciones).
+    public $sandbox = 1;
     public $active = true;
     public $accessTokenMasked = 'No configurada';
     public $publicKeyMasked = 'No configurada';
@@ -29,16 +34,91 @@ class MercadoPagoController extends Component
 
     public function render()
     {
-        return view('livewire.mercado-pago.mercado-pago-controller')
+        return view('livewire.mercado-pago.mercado-pago-controller', [
+            'settings' => MercadoPagoSetting::orderByDesc('active')->orderBy('id')->get(),
+            'enUso' => MercadoPagoSetting::active(),
+        ])
             ->extends('layouts.theme.app')
             ->section('content');
     }
 
+    /** Limpia el formulario para capturar una configuración nueva (no toca las guardadas). */
+    public function newSetting(): void
+    {
+        $this->resetValidation();
+        $this->settingId = null;
+        $this->name = '';
+        $this->accessToken = '';
+        $this->publicKey = '';
+        $this->webhookSecret = '';
+        $this->sandbox = 1;
+        $this->active = false;
+        $this->accessTokenMasked = 'No configurada';
+        $this->publicKeyMasked = 'No configurada';
+        $this->webhookSecretMasked = 'No configurada';
+    }
+
+    public function edit(int $id): void
+    {
+        $setting = MercadoPagoSetting::find($id);
+
+        if ($setting) {
+            $this->resetValidation();
+            $this->fillFrom($setting);
+        }
+    }
+
+    /** Pone en uso una configuración guardada: las demás quedan inactivas. */
+    public function activate(int $id): void
+    {
+        $setting = MercadoPagoSetting::find($id);
+
+        if (! $setting) {
+            return;
+        }
+
+        MercadoPagoSetting::where('id', '!=', $setting->id)->update(['active' => false]);
+        $setting->update(['active' => true]);
+
+        if ($this->settingId === $setting->id) {
+            $this->fillFrom($setting->fresh());
+        }
+
+        $tipo = $setting->sandbox ? 'de PRUEBA (los pagos no son reales)' : 'de PRODUCCION (se cobra dinero real)';
+        [$conectado, $mensaje] = $this->verifyConnection($setting);
+
+        $this->emit(
+            $conectado ? 'mercadopago-success' : 'mercadopago-error',
+            "En uso: {$setting->name}, {$tipo}. " . ($conectado ? $mensaje : 'Ojo: ' . $mensaje)
+        );
+    }
+
+    public function deleteSetting(int $id): void
+    {
+        $setting = MercadoPagoSetting::find($id);
+
+        if (! $setting) {
+            return;
+        }
+
+        if ($setting->active) {
+            $this->emit('mercadopago-error', 'No se puede eliminar la configuracion en uso. Activa otra primero.');
+            return;
+        }
+
+        $setting->delete();
+
+        if ($this->settingId === $id) {
+            $this->settingId = null;
+            $this->loadSetting();
+        }
+
+        $this->emit('mercadopago-success', 'Configuracion eliminada.');
+    }
+
     public function save(): void
     {
-        $setting = $this->settingId
-            ? MercadoPagoSetting::find($this->settingId)
-            : MercadoPagoSetting::active();
+        $setting = $this->settingId ? MercadoPagoSetting::find($this->settingId) : null;
 
         $requiresCredentials = ! $setting;
 
@@ -47,7 +127,6 @@ class MercadoPagoController extends Component
             'accessToken' => ($requiresCredentials ? 'required' : 'nullable') . '|string|min:20',
             'publicKey' => ($requiresCredentials ? 'required' : 'nullable') . '|string|min:20',
             'sandbox' => 'required|boolean',
-            'active' => 'required|boolean',
         ], [
             'name.required' => 'Ingresa el nombre de la configuracion.',
             'accessToken.required' => 'Ingresa el Access Token de Mercado Pago.',
@@ -60,7 +139,6 @@ class MercadoPagoController extends Component
             $data = [
                 'name' => trim($this->name),
                 'sandbox' => (bool) $this->sandbox,
-                'active' => (bool) $this->active,
             ];
 
             if (trim($this->accessToken) !== '') {
@@ -75,25 +153,24 @@ class MercadoPagoController extends Component
                 $data['webhook_secret'] = trim($this->webhookSecret);
             }
 
-            if ($data['active']) {
-                MercadoPagoSetting::query()
-                    ->when($setting, fn ($query) => $query->where('id', '!=', $setting->id))
-                    ->update(['active' => false]);
-            }
+            $esNueva = ! $setting;
 
             if ($setting) {
                 $setting->update($data);
             } else {
+                // La primera configuración queda en uso; las siguientes se activan a mano con "Usar".
+                $data['active'] = ! MercadoPagoSetting::exists();
                 $setting = MercadoPagoSetting::create($data);
             }
 
-            $this->settingId = $setting->id;
-            $this->accessToken = '';
-            $this->publicKey = '';
-            $this->webhookSecret = '';
-            $this->loadSetting();
+            $this->fillFrom($setting->fresh());
 
             [$conectado, $mensaje] = $this->verifyConnection($setting);
+
+            if ($conectado && $esNueva && ! $setting->active) {
+                $mensaje .= ' Todavia no esta en uso: presiona "Usar" en la lista para activarla.';
+            }
+
             $this->emit($conectado ? 'mercadopago-success' : 'mercadopago-error', $mensaje);
         } catch (Throwable $e) {
             $this->emit('mercadopago-error', 'Error al guardar credenciales: ' . $e->getMessage());
@@ -139,14 +216,21 @@ class MercadoPagoController extends Component
     {
         $setting = MercadoPagoSetting::active() ?: MercadoPagoSetting::latest()->first();
 
-        if (! $setting) {
-            return;
+        if ($setting) {
+            $this->fillFrom($setting);
         }
+    }
 
+    /** Carga una configuración en el formulario. Los campos secretos quedan vacíos (solo se muestran enmascarados). */
+    private function fillFrom(MercadoPagoSetting $setting): void
+    {
         $this->settingId = $setting->id;
         $this->name = $setting->name;
-        $this->sandbox = (bool) $setting->sandbox;
+        $this->sandbox = $setting->sandbox ? 1 : 0;
         $this->active = (bool) $setting->active;
+        $this->accessToken = '';
+        $this->publicKey = '';
+        $this->webhookSecret = '';
         $this->accessTokenMasked = MercadoPagoSetting::mask($setting->access_token);
         $this->publicKeyMasked = MercadoPagoSetting::mask($setting->public_key);
         $this->webhookSecretMasked = MercadoPagoSetting::mask($setting->webhook_secret);

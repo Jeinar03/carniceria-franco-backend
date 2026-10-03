@@ -341,6 +341,29 @@ class MercadoPagoFlowTest extends TestCase
 
         $this->assertSame('cancelada', $venta->fresh()->estatus);
         $this->assertSame('rejected', $venta->fresh()->mercadopago_status);
+        // El motivo del rechazo queda guardado para no depender del panel de Mercado Pago.
+        $this->assertSame('cc_rejected_other_reason', $venta->fresh()->mercadopago_status_detail);
+    }
+
+    public function test_el_comprador_viaja_completo_a_mercado_pago_en_produccion(): void
+    {
+        config()->set('mercadopago.sandbox', false);
+
+        $this->crearVentaPendiente($this->cliente('prod@test.com', ['telefono' => '+52 (753) 100-2000']));
+        $payer = MercadoPagoControllerFake::$preferencia->payer;
+
+        $this->assertSame('prod@test.com', $payer->email);
+        $this->assertSame('X', $payer->surname);
+        $this->assertEquals(['area_code' => '753', 'number' => '1002000'], (array) $payer->phone);
+    }
+
+    public function test_en_prueba_no_se_manda_el_correo_del_comprador(): void
+    {
+        config()->set('mercadopago.sandbox', true);
+
+        $this->crearVentaPendiente($this->cliente('prueba@test.com'));
+
+        $this->assertNull(MercadoPagoControllerFake::$preferencia->payer->email);
     }
 
     public function test_un_rechazo_tardio_no_degrada_una_venta_ya_cobrada(): void
