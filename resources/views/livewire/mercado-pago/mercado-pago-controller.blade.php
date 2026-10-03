@@ -159,8 +159,9 @@
                                        placeholder="{{ $webhookSecretMasked !== 'No configurada' ? 'Dejar vacio para conservar la clave actual' : 'Pega la clave secreta del webhook' }}">
                                 <small class="text-muted d-block mt-1">
                                     Se copia en Mercado Pago, Tus integraciones, Webhooks, Configurar notificaciones.
-                                    Con la clave guardada, el sistema rechaza los avisos que no traigan una firma valida.
-                                    Sin clave, no se valida la firma.
+                                    Con la clave guardada, el sistema revisa la firma de cada aviso y anota en el
+                                    registro los que no coincidan (el pago se consulta siempre a Mercado Pago).
+                                    Sin clave, no se revisa la firma.
                                 </small>
                                 @error('webhookSecret') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
