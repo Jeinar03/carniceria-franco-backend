@@ -96,8 +96,15 @@
 
                 {{-- Formulario: editar la seleccionada o capturar una nueva --}}
                 <h5 class="mb-3">
-                    {{ $settingId ? 'Editando: ' . $name : 'Nueva configuracion' }}
+                    {{ $settingId ? 'Editando: ' . optional($settings->firstWhere('id', $settingId))->name : 'Nueva configuracion' }}
                 </h5>
+
+                @if ($settingId)
+                    <div class="alert alert-warning py-2">
+                        Estas modificando una configuracion que <b>ya existe</b>: lo que pegues aqui la reemplaza.
+                        Para agregar otra (por ejemplo Produccion) presiona primero <b>+ Nueva configuracion</b>.
+                    </div>
+                @endif
 
                 <div class="row">
                     <div class="col-lg-4 col-md-12 mb-3">
