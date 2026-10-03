@@ -558,6 +558,8 @@ class MercadoPagoController extends Controller
             'clave_configurada' => (bool) $secreto,
             'trae_x_signature' => $xSignature !== '',
             'trae_x_request_id' => $requestId !== null && $requestId !== '',
+            // Si el id del aviso viene en la URL (lo normal en avisos reales) o solo en el cuerpo (p. ej. el simulador).
+            'data_id_en_url' => $this->dataIdDeLaUrl($request) !== null,
             'resultado' => $resultado,
         ];
 
