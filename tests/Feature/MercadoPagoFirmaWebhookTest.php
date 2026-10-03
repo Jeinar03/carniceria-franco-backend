@@ -63,6 +63,8 @@ class MercadoPagoFirmaWebhookTest extends TestCase
         config()->set('mercadopago.frontend_url', 'https://tienda.test');
         config()->set('mercadopago.notification_url', 'https://api.test/api/v1/mercadopago/webhook');
         config()->set('mercadopago.webhook_secret', null);
+        // Estas pruebas cubren el modo estricto (rechazar con 401); el modo por omisión se prueba aparte.
+        config()->set('mercadopago.firma_estricta', true);
 
         MercadoPagoFirmaControllerFake::$pagos = [];
         $this->app->bind(MercadoPagoController::class, fn () => new MercadoPagoFirmaControllerFake());
@@ -156,6 +158,31 @@ class MercadoPagoFirmaWebhookTest extends TestCase
         $this->webhook(903, $this->firma('otra-clave', '903', 'req-abc-123'))->assertStatus(401);
 
         $this->assertSame('pendiente', $venta->fresh()->estatus);
+    }
+
+    public function test_en_modo_no_estricto_una_firma_invalida_se_anota_pero_el_pago_se_procesa(): void
+    {
+        config()->set('mercadopago.firma_estricta', false);
+        config()->set('mercadopago.webhook_secret', self::CLAVE);
+        $venta = $this->ventaConPago(910);
+
+        // Firma de otra clave: en modo no estricto no se rechaza, el pago se consulta y se completa.
+        $this->webhook(910, $this->firma('otra-clave', '910', 'req-abc-123'))->assertOk();
+
+        $this->assertSame('completada', $venta->fresh()->estatus);
+    }
+
+    public function test_en_modo_no_estricto_un_aviso_falso_de_un_pago_inexistente_no_hace_nada(): void
+    {
+        config()->set('mercadopago.firma_estricta', false);
+        config()->set('mercadopago.webhook_secret', self::CLAVE);
+        $ventas = Sale::count();
+
+        // El pago no existe en Mercado Pago: aunque el aviso se procese, no puede completar ninguna venta.
+        $this->webhook(999999, $this->firma('otra-clave', '999999', 'req-abc-123'))->assertOk();
+
+        $this->assertSame($ventas, Sale::count());
+        $this->assertSame(0, Sale::where('estatus', 'completada')->count());
     }
 
     public function test_con_clave_y_sin_firma_se_rechaza(): void

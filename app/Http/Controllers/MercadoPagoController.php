@@ -504,9 +504,16 @@ class MercadoPagoController extends Controller
             return response()->json(['error' => 'Mercado Pago no configurado'], 503);
         }
 
-        // Si hay clave de firma guardada, el aviso debe venir firmado por Mercado Pago.
+        // Con clave de firma guardada se revisa la firma del aviso. Por omisión una firma que no
+        // coincide solo se anota en el log: el aviso se procesa igual porque el pago siempre se
+        // consulta a Mercado Pago (única fuente de verdad), así que un aviso falso no puede cobrar
+        // nada. Con MERCADOPAGO_FIRMA_ESTRICTA=true se rechaza con 401.
         if ($this->verificarFirma($request) === 'invalida') {
-            return response()->json(['error' => 'Firma no valida'], 401);
+            if (config('mercadopago.firma_estricta')) {
+                return response()->json(['error' => 'Firma no valida'], 401);
+            }
+
+            Log::warning('Firma invalida: el aviso se procesa igual (modo no estricto)');
         }
 
         // Webhooks: {"type":"payment","data":{"id":"123"}}. IPN: ?topic=payment&id=123.
