@@ -32,6 +32,8 @@ class SiteConfigSeeder extends Seeder
                 'sabado'    => '08:00 - 21:00',
                 'domingo'   => '08:00 - 15:00',
             ],
+            // Datos de prueba: sin límite de horario para que pruebas y desarrollo no dependan de la hora.
+            'limitar_horario' => false,
             'activo'        => true,
         ]);
 

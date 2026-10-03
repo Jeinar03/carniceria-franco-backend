@@ -35,6 +35,7 @@ class SitioController extends Component
     public $configLogo       = null;
     public $configLogoActual = null;
     public $configHorarios   = [];
+    public $configLimitarHorario = true;
     public $configActiveTab  = 'datos';
 
     // ── Alert form ─────────────────────────────────────────────────
@@ -147,6 +148,7 @@ class SitioController extends Component
             $this->configClabe        = $config->clabe          ?? '';
             $this->configLogoActual = $config->logo;
             $this->configHorarios   = $this->normalizeHorarios($config->horarios);
+            $this->configLimitarHorario = (bool) $config->limitar_horario;
         }
 
         $this->emit('show-config-modal');
@@ -219,6 +221,7 @@ class SitioController extends Component
                 'clabe'          => $this->configClabe        ?: null,
                 'logo'          => $logoPath,
                 'horarios'      => $this->configHorarios,
+                'limitar_horario' => (bool) $this->configLimitarHorario,
             ];
 
             if ($this->configId) {
@@ -290,6 +293,7 @@ class SitioController extends Component
         $this->configLogo       = null;
         $this->configLogoActual = null;
         $this->configActiveTab  = 'datos';
+        $this->configLimitarHorario = true;
         $this->resetHorarios();
         $this->resetValidation();
     }

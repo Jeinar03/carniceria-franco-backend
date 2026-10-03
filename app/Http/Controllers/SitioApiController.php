@@ -17,7 +17,8 @@ class SitioApiController extends Controller
     public function getConfig(): JsonResponse
     {
         try {
-            $config = SiteConfig::where('activo', true)->first();
+            // Si por error hay más de una activa, gana la editada más recientemente (no la de id menor).
+            $config = SiteConfig::activa();
 
             if (! $config) {
                 return response()->json([
@@ -30,6 +31,8 @@ class SitioApiController extends Controller
 
             $data                = $config->toArray();
             $data['logo_url']    = $config->logo_url;
+            // La tienda evalúa el horario en esta zona, sin importar la hora del dispositivo del cliente.
+            $data['zona_horaria'] = config('app.horario_timezone');
 
             return response()->json([
                 'success' => true,

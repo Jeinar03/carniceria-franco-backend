@@ -69,6 +69,10 @@ return [
 
     'timezone' => 'UTC',
 
+    // Zona en la que se evalua el horario de atencion de la tienda. Aparte de 'timezone'
+    // (que sigue en UTC para no desplazar las fechas ya guardadas en la base).
+    'horario_timezone' => env('HORARIO_TIMEZONE', 'America/Mexico_City'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
