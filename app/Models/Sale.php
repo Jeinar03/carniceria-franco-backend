@@ -35,6 +35,7 @@ class Sale extends Model
         'metodo_pago',
         'mercadopago_payment_id',
         'mercadopago_status',
+        'mercadopago_status_detail',
         'transferencia_estado',
         'transferencia_evidencia_path',
         'transferencia_subida_at',

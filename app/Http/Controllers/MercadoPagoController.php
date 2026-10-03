@@ -62,6 +62,31 @@ class MercadoPagoController extends Controller
         ], 503);
     }
 
+    /**
+     * Teléfono del comprador como lo pide Mercado Pago: solo dígitos, sin el 52 de México,
+     * y separado en lada (3 dígitos) y número cuando son los 10 dígitos habituales.
+     *
+     * @return array{area_code: string, number: string}|null
+     */
+    private function telefonoParaMercadoPago(?string $telefono): ?array
+    {
+        $digitos = preg_replace('/\D+/', '', (string) $telefono);
+
+        if (strlen($digitos) === 12 && str_starts_with($digitos, '52')) {
+            $digitos = substr($digitos, 2);
+        }
+
+        if ($digitos === '') {
+            return null;
+        }
+
+        if (strlen($digitos) === 10) {
+            return ['area_code' => substr($digitos, 0, 3), 'number' => substr($digitos, 3)];
+        }
+
+        return ['area_code' => '', 'number' => $digitos];
+    }
+
     protected function inicializarSdk(string $accessToken): void
     {
         SDK::setAccessToken($accessToken);
@@ -360,11 +385,9 @@ class MercadoPagoController extends Controller
                 'environment' => config('app.env'),
             ]);
 
-            if ($customer->telefono) {
-                $payer->phone = [
-                    'area_code' => '',
-                    'number'    => $customer->telefono,
-                ];
+            $telefono = $this->telefonoParaMercadoPago($customer->telefono);
+            if ($telefono) {
+                $payer->phone = $telefono;
             }
 
             if ($customer->direccion) {
@@ -628,9 +651,20 @@ class MercadoPagoController extends Controller
 
     private function registrarPago(Sale $venta, $payment): void
     {
-        $venta->mercadopago_payment_id = $payment->id;
-        $venta->mercadopago_status     = $payment->status;
+        $venta->mercadopago_payment_id    = $payment->id;
+        $venta->mercadopago_status        = $payment->status;
+        // El motivo (p. ej. cc_rejected_high_risk) es lo que explica un rechazo; el estado solo dice "rejected".
+        $venta->mercadopago_status_detail = $payment->status_detail ?? null;
         $venta->save();
+
+        if (in_array($payment->status, ['rejected', 'cancelled'], true)) {
+            Log::warning('Pago de Mercado Pago no aprobado', [
+                'venta_id'      => $venta->id,
+                'payment_id'    => $payment->id,
+                'status'        => $payment->status,
+                'status_detail' => $payment->status_detail ?? null,
+            ]);
+        }
     }
 
     /**
