@@ -403,4 +403,25 @@ class MercadoPagoFlowTest extends TestCase
         $this->assertSame(100.0, $pricing->porcentajeDescuentoParaCliente(new Customers(['tipo_cliente' => 'mayorista', 'descuento_preferencial' => 250])));
         $this->assertSame(0.0, $pricing->porcentajeDescuentoParaCliente(null));
     }
+
+    public function test_la_preferencia_guarda_la_forma_de_entrega_y_por_omision_es_mandadito(): void
+    {
+        $cliente = $this->cliente('entrega@test.com');
+
+        $this->assertSame('mandadito', $this->crearVentaPendiente($cliente)->tipo_entrega);
+        $this->assertSame('recoger', $this->crearVentaPendiente($cliente, 1, ['tipo_entrega' => 'recoger'])->tipo_entrega);
+    }
+
+    public function test_la_preferencia_rechaza_una_forma_de_entrega_invalida(): void
+    {
+        Sanctum::actingAs($this->cliente('entrega2@test.com'), ['cliente']);
+
+        $this->postJson('/api/v1/mercadopago/create-preference', [
+            'metodo_pago' => 'mercado_pago',
+            'tipo_entrega' => 'dron',
+            'productos' => [['product_id' => $this->productos()[0]->id, 'cantidad' => 1]],
+        ])->assertStatus(422);
+
+        $this->assertSame(0, Sale::count());
+    }
 }

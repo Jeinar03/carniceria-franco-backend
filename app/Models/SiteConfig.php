@@ -96,6 +96,30 @@ class SiteConfig extends Model
     }
 
     /**
+     * Horarios capturados, de lunes a domingo, como lineas para mostrar al cliente
+     * ("Lunes: 08:00 - 20:00"). Los dias sin captura no aparecen.
+     *
+     * @return string[]
+     */
+    public function horariosParaMostrar(): array
+    {
+        $nombres = [
+            'lunes' => 'Lunes', 'martes' => 'Martes', 'miercoles' => 'Miércoles', 'jueves' => 'Jueves',
+            'viernes' => 'Viernes', 'sabado' => 'Sábado', 'domingo' => 'Domingo',
+        ];
+        $horarios = is_array($this->horarios) ? $this->horarios : [];
+        $lineas = [];
+
+        foreach ($nombres as $clave => $nombre) {
+            if (array_key_exists($clave, $horarios)) {
+                $lineas[] = $nombre . ': ' . self::textoDeHorario($horarios[$clave]);
+            }
+        }
+
+        return $lineas;
+    }
+
+    /**
      * Datos bancarios capturados (solo los que no estan vacios), o null si no hay ninguno.
      * Se usan para mostrar al cliente a donde transferir.
      */

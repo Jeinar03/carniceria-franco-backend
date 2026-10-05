@@ -162,6 +162,7 @@ class MercadoPagoController extends Controller
             'metodo_pago'             => 'required|string',
             // El descuento no se recibe: lo calcula el servidor según el tipo de cliente.
             'notas'                   => 'nullable|string',
+            'tipo_entrega'            => 'nullable|in:' . implode(',', Sale::TIPOS_ENTREGA), // Sin el campo: mandadito
         ]);
 
         if ($validator->fails()) {
@@ -333,6 +334,7 @@ class MercadoPagoController extends Controller
                 'metodo_pago'  => 'mercado_pago',
                 'estatus'      => 'pendiente',
                 'notas'        => $request->notas,
+                'tipo_entrega' => $request->input('tipo_entrega') ?: Sale::ENTREGA_MANDADITO,
                 'estado_envio' => 'Pendiente',
             ]);
 

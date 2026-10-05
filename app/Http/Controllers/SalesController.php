@@ -83,6 +83,7 @@ class SalesController extends Controller
             'productos.*.monto_pesos' => 'nullable|numeric|min:0', // Para venta por monto
             'notas' => 'nullable|string',
             'fecha_entrega' => 'nullable|date|after_or_equal:today', // Pedido para un día posterior (opcional)
+            'tipo_entrega' => 'nullable|in:' . implode(',', Sale::TIPOS_ENTREGA), // Sin el campo: mandadito
         ]);
 
         if ($validator->fails()) {
@@ -164,6 +165,7 @@ class SalesController extends Controller
                 'customer_id' => $request->customer_id,
                 'fecha_venta' => now(),
                 'fecha_entrega' => $request->fecha_entrega,
+                'tipo_entrega' => $request->input('tipo_entrega') ?: Sale::ENTREGA_MANDADITO,
                 'subtotal' => $subtotal,
                 'descuento' => $descuento,
                 'impuestos' => $impuestos,

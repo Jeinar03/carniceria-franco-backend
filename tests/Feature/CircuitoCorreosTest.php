@@ -96,7 +96,7 @@ class CircuitoCorreosTest extends TestCase
         $this->assertSame(Sale::ENVIO_PENDIENTE, $venta->fresh()->estado_envio);
     }
 
-    public function test_despachar_los_productos_no_manda_correo_y_enviar_avisa_que_va_en_camino(): void
+    public function test_despachar_los_productos_no_manda_correo_y_enviar_avisa_que_ya_salio(): void
     {
         Mail::fake();
         $venta = $this->comprarPorTransferencia();
@@ -119,7 +119,7 @@ class CircuitoCorreosTest extends TestCase
         Mail::assertSent(OrderStatusMail::class, 2);
         Mail::assertSent(OrderStatusMail::class, function ($mail) {
             return $mail->hasTo('juanita@test.com')
-                && $mail->statusConfig['subject'] === 'Tu pedido está en camino - Carnicería Franko';
+                && $mail->statusConfig['subject'] === 'Tu pedido ya salió - Carnicería Franko';
         });
     }
 
