@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Sale;
+use App\Models\SiteConfig;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\OrderStatusMail;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +21,7 @@ class OrderNotificationService
         }
 
         try {
-            $statusConfig = self::getStatusConfig($sale->estado_envio);
+            $statusConfig = self::getStatusConfig($sale->estado_envio, $sale);
 
             if (!$statusConfig) {
                 return false;
@@ -38,10 +39,50 @@ class OrderNotificationService
     }
 
     /**
+     * Correo de cuando la carniceria termina su parte. Depende de como se entrega el pedido:
+     * mandadito (servicio externo, sin seguimiento) o recoger en la carniceria.
+     */
+    private static function configDeSalida(?Sale $sale): array
+    {
+        if ($sale && $sale->esParaRecoger()) {
+            $sitio = SiteConfig::activa();
+            $direccion = $sitio ? trim((string) $sitio->direccion) : '';
+            $horarios = $sitio ? $sitio->horariosParaMostrar() : [];
+
+            return [
+                'subject' => 'Tu pedido está listo para recoger - Carnicería Franko',
+                'title' => 'Tu pedido está listo para recoger',
+                'status_display' => 'Listo para recoger',
+                'message' => 'Tu pedido ya está listo en Carnicería Franko y puedes pasar a recogerlo cuando gustes. Gracias por tu compra, ¡que lo disfrutes!',
+                'color' => '#28a745',
+                'icon' => '',
+                'next_step' => 'Pasa a la carnicería y menciona tu folio al llegar.',
+                'estimated_time' => 'Tu pedido te espera; abajo encontrarás cómo llegar y los horarios.',
+                'punto_recoger' => ['direccion' => $direccion, 'horarios' => $horarios],
+            ];
+        }
+
+        return [
+            'subject' => 'Tu pedido ya salió - Carnicería Franko',
+            'title' => 'Tu pedido ya salió',
+            'status_display' => 'Ya salió',
+            'message' => 'Tu pedido ya salió de Carnicería Franko y un mandadito lo llevará a la dirección que nos indicaste. Gracias por tu compra, ¡que lo disfrutes!',
+            'color' => '#007bff',
+            'icon' => '',
+            'next_step' => 'Mantente atento a tu teléfono para recibir tu pedido.',
+            'estimated_time' => 'El tiempo de llegada depende del mandadito, la distancia y el tráfico.',
+        ];
+    }
+
+    /**
      * Obtener configuración del email según el estado
      */
-    private static function getStatusConfig($estado)
+    private static function getStatusConfig($estado, ?Sale $sale = null)
     {
+        if ($estado === 'Enviado') {
+            return self::configDeSalida($sale);
+        }
+
         $configs = [
             'Procesando' => [
                 'subject' => 'Tu pedido está siendo procesado - Carnicería Franko',
@@ -60,18 +101,8 @@ class OrderNotificationService
                 'message' => 'Nos complace informarte que tu pedido ha sido completamente procesado y empacado. Todos los productos han sido cuidadosamente seleccionados y están listos en perfectas condiciones para su envío.',
                 'color' => '#28a745',
                 'icon' => '',
-                'next_step' => 'Nuestro equipo de reparto saldrá hacia tu domicilio en los próximos minutos.',
-                'estimated_time' => 'Tiempo estimado de envío: 15-30 minutos'
-            ],
-            'Enviado' => [
-                'subject' => 'Tu pedido está en camino - Carnicería Franko',
-                'title' => 'Tu pedido está en camino',
-                'status_display' => 'En camino',
-                'message' => 'Tu pedido ha salido de nuestro establecimiento y se encuentra en camino hacia la dirección que nos proporcionaste. Nuestro repartidor se dirigirá directamente a tu domicilio.',
-                'color' => '#007bff',
-                'icon' => '',
-                'next_step' => 'Por favor, mantente disponible para recibir tu pedido.',
-                'estimated_time' => 'El tiempo de llegada dependerá de la distancia y las condiciones del tráfico'
+                'next_step' => 'Un mandadito pasará por tu pedido para llevarlo a tu domicilio.',
+                'estimated_time' => 'Te avisaremos en cuanto tu pedido salga de la carnicería.'
             ],
             // Transferencia registrada: el pago todavia no se valida, asi que NO es una compra completada.
             'recibido_transferencia' => [

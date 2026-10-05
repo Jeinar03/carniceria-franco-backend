@@ -8,25 +8,107 @@
             </div>
 
             <div class="widget-content">
+                {{-- Aviso permanente de qué credenciales están en uso --}}
+                @if (! $enUso)
+                    <div class="alert alert-warning mb-3">
+                        <b>No hay ninguna configuracion en uso.</b> Los pagos con Mercado Pago no estan disponibles
+                        (se usa el respaldo del archivo .env, si existe). Guarda una y presiona "Usar".
+                    </div>
+                @elseif ($enUso->sandbox)
+                    <div class="alert alert-danger mb-3">
+                        <b>MODO PRUEBA activo:</b> estas usando "{{ $enUso->name }}". Los pagos NO son reales.
+                        Antes de abrir al publico presiona "Usar" en la configuracion de Produccion.
+                    </div>
+                @else
+                    <div class="alert alert-success mb-3">
+                        <b>PRODUCCION:</b> estas usando "{{ $enUso->name }}". Los pagos son reales.
+                    </div>
+                @endif
+
+                {{-- Configuraciones guardadas --}}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">Configuraciones guardadas</h5>
+                    <button type="button" class="btn btn-outline-primary btn-sm" wire:click="newSetting">
+                        <i class="fas fa-plus mr-1"></i> Nueva configuracion
+                    </button>
+                </div>
+
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Tipo</th>
+                                <th>Access Token</th>
+                                <th>Firma del webhook</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center" style="width: 230px">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($settings as $item)
+                                <tr class="{{ $settingId === $item->id ? 'table-active' : '' }}">
+                                    <td class="align-middle"><b>{{ $item->name }}</b></td>
+                                    <td class="align-middle">
+                                        <span class="badge {{ $item->sandbox ? 'badge-warning' : 'badge-primary' }}">
+                                            {{ $item->sandbox ? 'Prueba' : 'Produccion' }}
+                                        </span>
+                                    </td>
+                                    <td class="align-middle"><code>{{ \App\Models\MercadoPagoSetting::mask($item->access_token) }}</code></td>
+                                    <td class="align-middle">{{ $item->webhook_secret ? 'Configurada' : 'No configurada' }}</td>
+                                    <td class="align-middle text-center">
+                                        @if ($item->active)
+                                            <span class="badge badge-success">En uso</span>
+                                        @else
+                                            <span class="badge badge-secondary">Guardada</span>
+                                        @endif
+                                    </td>
+                                    <td class="align-middle text-center">
+                                        @if (! $item->active)
+                                            <button type="button" class="btn btn-success btn-sm"
+                                                    wire:click="activate({{ $item->id }})"
+                                                    @if (! $item->sandbox)
+                                                        onclick="confirm('Se cobrara dinero real. Usar esta configuracion de PRODUCCION?') || event.stopImmediatePropagation()"
+                                                    @endif>
+                                                <i class="fas fa-check mr-1"></i> Usar
+                                            </button>
+                                        @endif
+                                        <button type="button" class="btn btn-info btn-sm" wire:click="edit({{ $item->id }})">
+                                            <i class="fas fa-edit"></i> Editar
+                                        </button>
+                                        @if (! $item->active)
+                                            <button type="button" class="btn btn-danger btn-sm"
+                                                    wire:click="deleteSetting({{ $item->id }})"
+                                                    onclick="confirm('Eliminar la configuracion {{ e($item->name) }}?') || event.stopImmediatePropagation()">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">Aun no hay configuraciones guardadas.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                {{-- Formulario: editar la seleccionada o capturar una nueva --}}
+                <h5 class="mb-3">
+                    {{ $settingId ? 'Editando: ' . optional($settings->firstWhere('id', $settingId))->name : 'Nueva configuracion' }}
+                </h5>
+
+                @if ($settingId)
+                    <div class="alert alert-warning py-2">
+                        Estas modificando una configuracion que <b>ya existe</b>: lo que pegues aqui la reemplaza.
+                        Para agregar otra (por ejemplo Produccion) presiona primero <b>+ Nueva configuracion</b>.
+                    </div>
+                @endif
+
                 <div class="row">
                     <div class="col-lg-4 col-md-12 mb-3">
-                        <div class="mp-status-card">
-                            <div class="mp-status-icon">
-                                <i class="fas fa-credit-card"></i>
-                            </div>
-                            <div>
-                                <small>Configuracion actual</small>
-                                <h5 class="mb-1">{{ $name }}</h5>
-                                <span class="badge {{ $active ? 'badge-success' : 'badge-secondary' }}">
-                                    {{ $active ? 'Activa' : 'Inactiva' }}
-                                </span>
-                                <span class="badge {{ $sandbox ? 'badge-warning' : 'badge-primary' }}">
-                                    {{ $sandbox ? 'Sandbox' : 'Produccion' }}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="mp-credential-preview mt-3">
+                        <div class="mp-credential-preview">
                             <small>Access Token</small>
                             <code>{{ $accessTokenMasked }}</code>
                         </div>
@@ -47,7 +129,7 @@
                             <div class="col-md-12 form-group">
                                 <label>Nombre de la configuracion</label>
                                 <input type="text" class="form-control @error('name') is-invalid @enderror"
-                                       wire:model.lazy="name" placeholder="Configuracion principal">
+                                       wire:model.lazy="name" placeholder="Ej. Pruebas o Produccion">
                                 @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
 
@@ -77,37 +159,23 @@
                                        placeholder="{{ $webhookSecretMasked !== 'No configurada' ? 'Dejar vacio para conservar la clave actual' : 'Pega la clave secreta del webhook' }}">
                                 <small class="text-muted d-block mt-1">
                                     Se copia en Mercado Pago, Tus integraciones, Webhooks, Configurar notificaciones.
-                                    Con la clave guardada, el sistema rechaza los avisos que no traigan una firma valida.
-                                    Sin clave, no se valida la firma.
+                                    Con la clave guardada, el sistema revisa la firma de cada aviso y anota en el
+                                    registro los que no coincidan (el pago se consulta siempre a Mercado Pago).
+                                    Sin clave, no se revisa la firma.
                                 </small>
                                 @error('webhookSecret') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
 
                             <div class="col-md-6 form-group">
-                                <label>Ambiente</label>
-                                <div class="custom-control custom-switch mt-2">
-                                    <input type="checkbox" class="custom-control-input" id="mpSandbox"
-                                           wire:model="sandbox">
-                                    <label class="custom-control-label" for="mpSandbox">
-                                        {{ $sandbox ? 'Sandbox habilitado' : 'Produccion' }}
-                                    </label>
-                                </div>
+                                <label>Tipo de credenciales</label>
+                                <select class="form-control" wire:model="sandbox">
+                                    <option value="1">Prueba (usuarios y tarjetas de prueba)</option>
+                                    <option value="0">Produccion (cobra dinero real)</option>
+                                </select>
                                 <small class="text-muted d-block mt-1">
-                                    Solo controla si se omite el correo del cliente en el checkout. Que el pago sea de
-                                    prueba o real lo define el tipo de credencial que pegues (pestaña Prueba o
-                                    Productivas en Mercado Pago). El webhook se activa siempre.
+                                    Elige el tipo segun las credenciales que pegaste. En Prueba no se manda el correo
+                                    del cliente a Mercado Pago; en Produccion si.
                                 </small>
-                            </div>
-
-                            <div class="col-md-6 form-group">
-                                <label>Estado</label>
-                                <div class="custom-control custom-switch mt-2">
-                                    <input type="checkbox" class="custom-control-input" id="mpActive"
-                                           wire:model="active">
-                                    <label class="custom-control-label" for="mpActive">
-                                        {{ $active ? 'Configuracion activa' : 'Configuracion inactiva' }}
-                                    </label>
-                                </div>
                             </div>
 
                             <div class="col-md-12 mt-2">
@@ -117,7 +185,7 @@
                                         Guardando...
                                     </span>
                                     <span wire:loading.remove wire:target="save">
-                                        <i class="fas fa-save mr-1"></i> Guardar credenciales
+                                        <i class="fas fa-save mr-1"></i> {{ $settingId ? 'Guardar cambios' : 'Guardar configuracion' }}
                                     </span>
                                 </button>
                             </div>
@@ -137,29 +205,6 @@
 </script>
 
 <style>
-    .mp-status-card {
-        align-items: center;
-        background: #f5f6fb;
-        border: 1px solid #e2e6f0;
-        border-radius: 8px;
-        display: flex;
-        gap: 14px;
-        padding: 18px;
-    }
-
-    .mp-status-icon {
-        align-items: center;
-        background: #3B3F5C;
-        border-radius: 8px;
-        color: #fff;
-        display: flex;
-        font-size: 24px;
-        height: 54px;
-        justify-content: center;
-        width: 54px;
-    }
-
-    .mp-status-card small,
     .mp-credential-preview small {
         color: #697086;
         display: block;

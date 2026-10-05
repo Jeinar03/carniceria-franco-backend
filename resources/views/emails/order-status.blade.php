@@ -357,8 +357,28 @@
             </div>
             @endif
 
+            <!-- Donde recoger el pedido (solo en el correo de "listo para recoger") -->
+            @if(!empty($config['punto_recoger']))
+            <div class="address-card">
+                <h3>Dónde recogerlo</h3>
+                <div class="address-info">
+                    @if(!empty($config['punto_recoger']['direccion']))
+                    <strong>Dirección:</strong> {{ $config['punto_recoger']['direccion'] }}<br>
+                    @endif
+                    @if(!empty($config['punto_recoger']['horarios']))
+                    <strong>Horarios:</strong><br>
+                    @foreach($config['punto_recoger']['horarios'] as $linea)
+                    {{ $linea }}<br>
+                    @endforeach
+                    @endif
+                    <br>
+                    Menciona tu número de pedido ({{ $order['folio'] }}) al llegar.
+                </div>
+            </div>
+            @endif
+
             <!-- Customer Address -->
-            @if($customer->direccion)
+            @if($customer->direccion && empty($config['punto_recoger']))
             <div class="address-card">
                 <h3>Dirección de Entrega</h3>
                 <div class="address-info">

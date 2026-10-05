@@ -23,11 +23,17 @@ class Sale extends Model
     const ENVIO_ENVIADO = 'Enviado';
     const ENVIO_ENTREGADO = 'Entregado';
 
+    // Forma de entrega (columna `tipo_entrega`): el mandadito es un servicio externo, sin seguimiento.
+    const ENTREGA_MANDADITO = 'mandadito';
+    const ENTREGA_RECOGER = 'recoger';
+    const TIPOS_ENTREGA = [self::ENTREGA_MANDADITO, self::ENTREGA_RECOGER];
+
     protected $fillable = [
         'customer_id',
         'folio',
         'fecha_venta',
         'fecha_entrega',
+        'tipo_entrega',
         'subtotal',
         'descuento',
         'impuestos',
@@ -35,6 +41,7 @@ class Sale extends Model
         'metodo_pago',
         'mercadopago_payment_id',
         'mercadopago_status',
+        'mercadopago_status_detail',
         'transferencia_estado',
         'transferencia_evidencia_path',
         'transferencia_subida_at',
@@ -63,6 +70,7 @@ class Sale extends Model
     protected $attributes = [
         'estatus' => 'completada',
         'metodo_pago' => 'efectivo',
+        'tipo_entrega' => self::ENTREGA_MANDADITO,
         'subtotal' => 0,
         'descuento' => 0,
         'impuestos' => 0,
@@ -100,6 +108,11 @@ class Sale extends Model
     public function indicadorRespuestas()
     {
         return $this->hasMany(IndicadorRespuesta::class, 'sale_id');
+    }
+
+    public function esParaRecoger(): bool
+    {
+        return $this->tipo_entrega === self::ENTREGA_RECOGER;
     }
 
     // Scope para ventas completadas

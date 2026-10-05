@@ -40,7 +40,15 @@
                         </div>
                         <div class="col-sm-12">
                             <div class="alert alert-light border mb-0">
-                                <div class="text-muted mb-2"><i class="fas fa-user"></i> Datos del cliente <small>(para compartir con el mandadito al entregar)</small></div>
+                                <div class="text-muted mb-2">
+                                    <i class="fas fa-user"></i> Datos del cliente
+                                    @if($sale->esParaRecoger())
+                                        <span class="badge badge-success ml-1"><i class="fas fa-store"></i> Recoger en la carnicería</span>
+                                    @else
+                                        <span class="badge badge-secondary ml-1"><i class="fas fa-motorcycle"></i> Mandadito</span>
+                                        <small>(para compartir con el mandadito al entregar)</small>
+                                    @endif
+                                </div>
                                 <div class="row">
                                     <div class="col-md-3 col-sm-6 mb-2 mb-md-0">
                                         <small class="text-muted d-block">Nombre</small>
@@ -150,10 +158,14 @@
                                             wire:loading.attr="disabled"
                                             wire:target="enviarPedido">
                                         <span wire:loading.remove wire:target="enviarPedido">
-                                            <i class="fas fa-shipping-fast"></i> ENVIAR PEDIDO
+                                            @if($sale->esParaRecoger())
+                                                <i class="fas fa-store"></i> LISTO PARA RECOGER
+                                            @else
+                                                <i class="fas fa-shipping-fast"></i> ENVIAR PEDIDO
+                                            @endif
                                         </span>
                                         <span wire:loading wire:target="enviarPedido">
-                                            <i class="fas fa-spinner fa-spin"></i> ENVIANDO...
+                                            <i class="fas fa-spinner fa-spin"></i> {{ $sale->esParaRecoger() ? 'AVISANDO...' : 'ENVIANDO...' }}
                                         </span>
                                     </button>
                                 </div>

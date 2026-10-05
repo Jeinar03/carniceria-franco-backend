@@ -44,6 +44,14 @@
                                 </div>
 
                                 <div class="form-group">
+                                    <label>Forma de entrega</label>
+                                    <select wire:model="editTipoEntrega" class="form-control">
+                                        <option value="mandadito">Mandadito a domicilio</option>
+                                        <option value="recoger">Recoger en la carnicería</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
                                     <label>Fecha de entrega</label>
                                     <input type="date" wire:model="editFechaEntrega" class="form-control">
                                     <small class="text-muted d-block mt-1">Déjalo vacío para entrega inmediata (hoy). Con una fecha posterior, el pedido se mueve a "Pedidos Programados".</small>

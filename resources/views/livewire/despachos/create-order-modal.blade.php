@@ -77,6 +77,15 @@
                                 </div>
 
                                 <div class="form-group">
+                                    <label>Forma de entrega</label>
+                                    <select wire:model="createTipoEntrega" class="form-control">
+                                        <option value="mandadito">Mandadito a domicilio</option>
+                                        <option value="recoger">Recoger en la carnicería</option>
+                                    </select>
+                                    <small class="text-muted d-block mt-1">El mandadito es un servicio externo: el cliente arregla su pago directo con él.</small>
+                                </div>
+
+                                <div class="form-group">
                                     <label>Fecha de entrega</label>
                                     <input type="date" wire:model="createFechaEntrega" class="form-control">
                                     <small class="text-muted d-block mt-1">Déjalo vacío para entrega inmediata (hoy). Si el pedido es para un día posterior, aparecerá en la pestaña "Pedidos Programados".</small>

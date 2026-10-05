@@ -6,6 +6,7 @@ use App\Models\MercadoPagoSetting;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleDetail;
+use App\Models\SiteConfig;
 use App\Services\InventoryService;
 use App\Services\OrderNotificationService;
 use App\Services\PricingService;
@@ -61,6 +62,31 @@ class MercadoPagoController extends Controller
         ], 503);
     }
 
+    /**
+     * Teléfono del comprador como lo pide Mercado Pago: solo dígitos, sin el 52 de México,
+     * y separado en lada (3 dígitos) y número cuando son los 10 dígitos habituales.
+     *
+     * @return array{area_code: string, number: string}|null
+     */
+    private function telefonoParaMercadoPago(?string $telefono): ?array
+    {
+        $digitos = preg_replace('/\D+/', '', (string) $telefono);
+
+        if (strlen($digitos) === 12 && str_starts_with($digitos, '52')) {
+            $digitos = substr($digitos, 2);
+        }
+
+        if ($digitos === '') {
+            return null;
+        }
+
+        if (strlen($digitos) === 10) {
+            return ['area_code' => substr($digitos, 0, 3), 'number' => substr($digitos, 3)];
+        }
+
+        return ['area_code' => '', 'number' => $digitos];
+    }
+
     protected function inicializarSdk(string $accessToken): void
     {
         SDK::setAccessToken($accessToken);
@@ -81,6 +107,16 @@ class MercadoPagoController extends Controller
     {
         if (! $this->configured) {
             return $this->noConfigurado();
+        }
+
+        $atencion = SiteConfig::estadoDeAtencion();
+        if (! $atencion['abierto']) {
+            return response()->json([
+                'success' => false,
+                'status'  => 403,
+                'message' => 'La tienda está cerrada por horario de atención (hoy: ' . $atencion['horario'] . ').',
+                'data'    => null,
+            ], 403);
         }
 
         Log::info('═══════════════════════════════════════');
@@ -126,6 +162,7 @@ class MercadoPagoController extends Controller
             'metodo_pago'             => 'required|string',
             // El descuento no se recibe: lo calcula el servidor según el tipo de cliente.
             'notas'                   => 'nullable|string',
+            'tipo_entrega'            => 'nullable|in:' . implode(',', Sale::TIPOS_ENTREGA), // Sin el campo: mandadito
         ]);
 
         if ($validator->fails()) {
@@ -297,6 +334,7 @@ class MercadoPagoController extends Controller
                 'metodo_pago'  => 'mercado_pago',
                 'estatus'      => 'pendiente',
                 'notas'        => $request->notas,
+                'tipo_entrega' => $request->input('tipo_entrega') ?: Sale::ENTREGA_MANDADITO,
                 'estado_envio' => 'Pendiente',
             ]);
 
@@ -349,11 +387,9 @@ class MercadoPagoController extends Controller
                 'environment' => config('app.env'),
             ]);
 
-            if ($customer->telefono) {
-                $payer->phone = [
-                    'area_code' => '',
-                    'number'    => $customer->telefono,
-                ];
+            $telefono = $this->telefonoParaMercadoPago($customer->telefono);
+            if ($telefono) {
+                $payer->phone = $telefono;
             }
 
             if ($customer->direccion) {
@@ -470,9 +506,16 @@ class MercadoPagoController extends Controller
             return response()->json(['error' => 'Mercado Pago no configurado'], 503);
         }
 
-        // Si hay clave de firma guardada, el aviso debe venir firmado por Mercado Pago.
+        // Con clave de firma guardada se revisa la firma del aviso. Por omisión una firma que no
+        // coincide solo se anota en el log: el aviso se procesa igual porque el pago siempre se
+        // consulta a Mercado Pago (única fuente de verdad), así que un aviso falso no puede cobrar
+        // nada. Con MERCADOPAGO_FIRMA_ESTRICTA=true se rechaza con 401.
         if ($this->verificarFirma($request) === 'invalida') {
-            return response()->json(['error' => 'Firma no valida'], 401);
+            if (config('mercadopago.firma_estricta')) {
+                return response()->json(['error' => 'Firma no valida'], 401);
+            }
+
+            Log::warning('Firma invalida: el aviso se procesa igual (modo no estricto)');
         }
 
         // Webhooks: {"type":"payment","data":{"id":"123"}}. IPN: ?topic=payment&id=123.
@@ -524,10 +567,22 @@ class MercadoPagoController extends Controller
             'clave_configurada' => (bool) $secreto,
             'trae_x_signature' => $xSignature !== '',
             'trae_x_request_id' => $requestId !== null && $requestId !== '',
+            // Si el id del aviso viene en la URL (lo normal en avisos reales) o solo en el cuerpo (p. ej. el simulador).
+            'data_id_en_url' => $this->dataIdDeLaUrl($request) !== null,
             'resultado' => $resultado,
         ];
 
         if ($resultado === 'invalida') {
+            // Para poder depurar sin la clave: qué aviso era y qué texto se firmó (ninguno es secreto).
+            $firma = $this->datosDeFirma($request, $xSignature, $requestId);
+            $datos += [
+                'tipo'         => $request->input('type', $request->input('topic')),
+                'accion'       => $request->input('action'),
+                'query'        => (string) $request->server('QUERY_STRING'),
+                'manifiesto'   => $firma['manifiesto'] ?? null,
+                'v1_recibido'  => $firma['v1'] ?? null,
+                'v1_calculado' => $firma ? substr(hash_hmac('sha256', $firma['manifiesto'], (string) $secreto), 0, 12) : null,
+            ];
             Log::warning('Webhook rechazado por firma', $datos);
         } else {
             Log::info('Webhook firma', $datos);
@@ -542,8 +597,25 @@ class MercadoPagoController extends Controller
      */
     private function firmaEsValida(Request $request, string $secreto, string $xSignature, ?string $requestId): bool
     {
-        if ($xSignature === '') {
+        $datos = $this->datosDeFirma($request, $xSignature, $requestId);
+
+        if ($datos === null) {
             return false;
+        }
+
+        return hash_equals(hash_hmac('sha256', $datos['manifiesto'], $secreto), strtolower($datos['v1']));
+    }
+
+    /**
+     * Texto que se firma (manifiesto) y firma recibida (v1), o null si el encabezado no es utilizable.
+     * Ninguno de los dos contiene la clave secreta.
+     *
+     * @return array{manifiesto: string, v1: string}|null
+     */
+    private function datosDeFirma(Request $request, string $xSignature, ?string $requestId): ?array
+    {
+        if ($xSignature === '') {
+            return null;
         }
 
         $ts = null;
@@ -561,7 +633,7 @@ class MercadoPagoController extends Controller
         }
 
         if ($ts === null || $ts === '' || $v1 === null || $v1 === '') {
-            return false;
+            return null;
         }
 
         $dataId = $this->dataIdDeLaUrl($request) ?? (string) $request->input('data.id', '');
@@ -570,7 +642,7 @@ class MercadoPagoController extends Controller
             . ($requestId !== null && $requestId !== '' ? 'request-id:' . $requestId . ';' : '')
             . 'ts:' . $ts . ';';
 
-        return hash_equals(hash_hmac('sha256', $manifiesto, $secreto), strtolower($v1));
+        return ['manifiesto' => $manifiesto, 'v1' => $v1];
     }
 
     /** data.id viene en la URL (?data.id=123). PHP cambia el punto por guion bajo, por eso se lee a mano. */
@@ -617,9 +689,20 @@ class MercadoPagoController extends Controller
 
     private function registrarPago(Sale $venta, $payment): void
     {
-        $venta->mercadopago_payment_id = $payment->id;
-        $venta->mercadopago_status     = $payment->status;
+        $venta->mercadopago_payment_id    = $payment->id;
+        $venta->mercadopago_status        = $payment->status;
+        // El motivo (p. ej. cc_rejected_high_risk) es lo que explica un rechazo; el estado solo dice "rejected".
+        $venta->mercadopago_status_detail = $payment->status_detail ?? null;
         $venta->save();
+
+        if (in_array($payment->status, ['rejected', 'cancelled'], true)) {
+            Log::warning('Pago de Mercado Pago no aprobado', [
+                'venta_id'      => $venta->id,
+                'payment_id'    => $payment->id,
+                'status'        => $payment->status,
+                'status_detail' => $payment->status_detail ?? null,
+            ]);
+        }
     }
 
     /**
