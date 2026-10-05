@@ -135,6 +135,11 @@
                                     style="{{ $isUrgent ? 'animation: blink 2s infinite;' : '' }}">
                                     <td class="text-center">
                                         <h6><strong>{{ $venta->folio }}</strong></h6>
+                                        @if($venta->esParaRecoger())
+                                            <span class="badge badge-success badge-sm"><i class="fas fa-store"></i> Recoger en la carnicería</span>
+                                        @else
+                                            <span class="badge badge-secondary badge-sm"><i class="fas fa-motorcycle"></i> Mandadito</span>
+                                        @endif
                                         @if($isUrgent)
                                             <span class="badge badge-danger badge-sm">
                                                 <i class="fas fa-exclamation-triangle"></i> URGENTE

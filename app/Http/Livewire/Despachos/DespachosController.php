@@ -46,6 +46,7 @@ class DespachosController extends Component
     public $createNotas = '';
     public $createDescuento = 0;
     public $createFechaEntrega = '';
+    public $createTipoEntrega = 'mandadito';
     public $productSearch = '';
     public $cart = [];
 
@@ -70,6 +71,7 @@ class DespachosController extends Component
     public $editNotas = '';
     public $editDescuento = 0;
     public $editFechaEntrega = '';
+    public $editTipoEntrega = 'mandadito';
     public $editProductSearch = '';
     public $editCart = [];
 
@@ -449,6 +451,7 @@ class DespachosController extends Component
                     'customer_id' => $this->createCustomerId ?: null,
                     'fecha_venta' => now(),
                     'fecha_entrega' => $this->createFechaEntrega ?: null,
+                    'tipo_entrega' => $this->createTipoEntrega,
                     'subtotal' => $subtotal,
                     'descuento' => $descuento,
                     'impuestos' => $impuestos,
@@ -568,6 +571,7 @@ class DespachosController extends Component
         $this->createNotas = '';
         $this->createDescuento = 0;
         $this->createFechaEntrega = '';
+        $this->createTipoEntrega = Sale::ENTREGA_MANDADITO;
         $this->createEntregadoMostrador = true;
         $this->productSearch = '';
         $this->cart = [];
@@ -604,6 +608,7 @@ class DespachosController extends Component
         $this->editNotas = $sale->notas;
         $this->editDescuento = (float) $sale->descuento;
         $this->editFechaEntrega = $sale->fecha_entrega ? $sale->fecha_entrega->format('Y-m-d') : '';
+        $this->editTipoEntrega = $sale->tipo_entrega ?: Sale::ENTREGA_MANDADITO;
         $this->editProductSearch = '';
         $this->editCart = [];
 
@@ -639,6 +644,7 @@ class DespachosController extends Component
         $this->editNotas = '';
         $this->editDescuento = 0;
         $this->editFechaEntrega = '';
+        $this->editTipoEntrega = Sale::ENTREGA_MANDADITO;
         $this->editProductSearch = '';
         $this->editCart = [];
     }
@@ -954,6 +960,7 @@ class DespachosController extends Component
                 $sale->metodo_pago = $this->editMetodoPago;
                 $sale->notas = $this->editNotas;
                 $sale->fecha_entrega = $this->editFechaEntrega ?: null;
+                $sale->tipo_entrega = $this->editTipoEntrega;
                 $sale->subtotal = $subtotal;
                 $sale->descuento = $descuento;
                 $sale->total = $total;
@@ -1023,6 +1030,10 @@ class DespachosController extends Component
 
         if (!$this->editCustomerId && $this->editMetodoPago === 'credito') {
             return 'Selecciona un cliente para venta a credito';
+        }
+
+        if (!in_array($this->editTipoEntrega, Sale::TIPOS_ENTREGA, true)) {
+            return 'Forma de entrega no valida';
         }
 
         if ($this->editFechaEntrega && $this->editFechaEntrega < now()->toDateString()) {
@@ -1411,10 +1422,12 @@ class DespachosController extends Component
 
             $this->closeModal();
 
+            $accion = $sale->esParaRecoger() ? 'Pedido listo para recoger' : 'Pedido enviado';
+
             if ($emailSent) {
-                $this->emit('pedido-enviado', 'Pedido enviado exitosamente y cliente notificado por email');
+                $this->emit('pedido-enviado', $accion . ' exitosamente y cliente notificado por email');
             } else {
-                $this->emit('pedido-enviado', 'Pedido enviado exitosamente (email no enviado - verificar datos del cliente)');
+                $this->emit('pedido-enviado', $accion . ' exitosamente (email no enviado - verificar datos del cliente)');
             }
 
         } catch (Throwable $e) {
@@ -1513,6 +1526,10 @@ class DespachosController extends Component
         // El credito se abona a la cuenta de un cliente real; no aplica a mostrador.
         if (!$this->createCustomerId && $this->createMetodoPago === 'credito') {
             return 'Selecciona un cliente para venta a credito';
+        }
+
+        if (!in_array($this->createTipoEntrega, Sale::TIPOS_ENTREGA, true)) {
+            return 'Forma de entrega no valida';
         }
 
         if ($this->createFechaEntrega && $this->createFechaEntrega < now()->toDateString()) {
