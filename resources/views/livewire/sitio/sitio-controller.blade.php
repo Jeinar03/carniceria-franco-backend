@@ -107,6 +107,13 @@
                                                     <i class="fas fa-check"></i>
                                                 </button>
                                             @endif
+                                            @if ($config->activo && $totalActivas > 1)
+                                                <button class="btn btn-xs btn-secondary mr-1"
+                                                        wire:click="deactivateConfig({{ $config->id }})"
+                                                        title="Desactivar">
+                                                    <i class="fas fa-power-off"></i>
+                                                </button>
+                                            @endif
                                             <button class="btn btn-xs btn-warning mr-1"
                                                     wire:click="openConfigModal({{ $config->id }})"
                                                     title="Editar">

@@ -5,6 +5,7 @@ namespace App\Http\Livewire\Sitio;
 use App\Models\SiteAlert;
 use App\Rules\ClabeInterbancaria;
 use App\Models\SiteConfig;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -228,6 +229,8 @@ class SitioController extends Component
                 SiteConfig::findOrFail($this->configId)->update($data);
                 $this->emit('sitio-success', 'Configuración actualizada correctamente.');
             } else {
+                // Si no hay ninguna activa, la nueva queda activa para que la tienda siempre tenga datos.
+                $data['activo'] = ! SiteConfig::where('activo', true)->exists();
                 SiteConfig::create($data);
                 $this->emit('sitio-success', 'Configuración creada correctamente.');
             }
@@ -242,11 +245,38 @@ class SitioController extends Component
     public function activateConfig(int $id): void
     {
         try {
-            SiteConfig::query()->update(['activo' => false]);
-            SiteConfig::findOrFail($id)->update(['activo' => true]);
+            $config = SiteConfig::findOrFail($id);
+
+            DB::transaction(function () use ($config) {
+                SiteConfig::query()->update(['activo' => false]);
+                $config->update(['activo' => true]);
+            });
+
             $this->emit('sitio-success', 'Configuración activada correctamente.');
         } catch (Throwable $e) {
             $this->emit('sitio-error', 'Error al activar: ' . $e->getMessage());
+        }
+    }
+
+    // Siempre debe quedar una activa: para cambiar de configuracion se usa Activar en la otra.
+    public function deactivateConfig(int $id): void
+    {
+        try {
+            $config = SiteConfig::findOrFail($id);
+
+            if (! $config->activo) {
+                return;
+            }
+
+            if (SiteConfig::where('activo', true)->count() <= 1) {
+                $this->emit('sitio-error', 'Debe quedar una configuración activa. Para cambiarla, presiona Activar en otra.');
+                return;
+            }
+
+            $config->update(['activo' => false]);
+            $this->emit('sitio-success', 'Configuración desactivada correctamente.');
+        } catch (Throwable $e) {
+            $this->emit('sitio-error', 'Error al desactivar: ' . $e->getMessage());
         }
     }
 
@@ -446,7 +476,9 @@ class SitioController extends Component
         $alertas = SiteAlert::orderByDesc('created_at')
             ->paginate(10, ['*'], 'alertas_page');
 
-        return view('livewire.sitio.sitio-controller', compact('configs', 'alertas'))
+        $totalActivas = SiteConfig::where('activo', true)->count();
+
+        return view('livewire.sitio.sitio-controller', compact('configs', 'alertas', 'totalActivas'))
             ->extends('layouts.theme.app')
             ->section('content');
     }

@@ -1,6 +1,21 @@
 @php
     use App\Config\MenuConfig;
     $menuItems = MenuConfig::getMenuItems();
+
+    // Modulo en el que esta el usuario: la direccion del submenu que mas se
+    // parece a la pagina actual (asi clientes/despachos no marca tambien Clientes).
+    $urlActual = null;
+    $menuActual = null;
+    foreach ($menuItems as $menu) {
+        foreach ($menu['submenu'] as $submenu) {
+            $coincide = request()->is($submenu['url']) || request()->is($submenu['url'] . '/*');
+            if ($coincide && strlen($submenu['url']) > strlen($urlActual ?? '')) {
+                $urlActual = $submenu['url'];
+                $menuActual = $menu['id'];
+            }
+        }
+    }
+    $menuActual = $menuActual ?? ($menuItems[0]['id'] ?? null);
 @endphp
 
 <link href="{{ asset('assets/css/app/sidebar.css') }}" rel="stylesheet" type="text/css" />
@@ -10,7 +25,7 @@
         <nav id="compactSidebar" class="sliderbar">
             <ul class="menu-categories sliderbar">
             @foreach($menuItems as $menu)
-                <li class="menu">
+                <li class="menu {{ $menu['id'] === $menuActual ? 'active' : '' }}">
                     <a href="#{{ $menu['id'] }}" data-active="false" class="menu-toggle">
                         <div class="base-menu">
                             <div class="base-icons">
@@ -31,10 +46,10 @@
 
         <div id="compact_submenuSidebar" class="submenu-sidebar ps">
             @foreach($menuItems as $menu)
-                <div class="submenu {{ $loop->first ? 'show' : '' }}" id="{{ $menu['id'] }}">
+                <div class="submenu {{ $menu['id'] === $menuActual ? 'show' : '' }}" id="{{ $menu['id'] }}">
                     <ul class="submenu-list" data-parent-element="#{{ $menu['id'] }}">
                         @foreach($menu['submenu'] as $submenu)
-                            <li>
+                            <li class="{{ $submenu['url'] === $urlActual ? 'active' : '' }}">
                                 <a href="{{ url($submenu['url']) }}" class="menu-toggle" data-active="false">
                                     <div class="base-menu">
                                         <div class="base-icons">
