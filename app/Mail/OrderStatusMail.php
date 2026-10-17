@@ -36,7 +36,7 @@ class OrderStatusMail extends Mailable
             return null;
         }
 
-        $config = SiteConfig::where('activo', true)->first();
+        $config = SiteConfig::activa();
 
         return $config ? $config->datosBancarios() : null;
     }
