@@ -142,6 +142,20 @@
                                 <small class="text-muted">Número de 10 dígitos, sin el código del país (la tienda le agrega el 52 sola).</small>
                             </div>
 
+                            <div class="col-12 form-group">
+                                <label class="cfg-label">
+                                    <i class="fab fa-whatsapp text-success mr-1"></i> Mensaje de WhatsApp
+                                </label>
+                                <textarea class="form-control @error('configMensajeWhatsapp') is-invalid @enderror"
+                                          wire:model.lazy="configMensajeWhatsapp"
+                                          rows="2" maxlength="300"
+                                          placeholder="Hola, quiero hacer un pedido o pedir información."></textarea>
+                                @error('configMensajeWhatsapp')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                                <small class="text-muted">Texto que ya aparece escrito cuando el cliente presiona un botón de WhatsApp en la tienda. Si lo dejas vacío, se usa el del ejemplo.</small>
+                            </div>
+
                             {{-- Datos bancarios --}}
                             <div class="col-12 mt-1">
                                 <h6 class="cfg-section-title"><i class="fas fa-university mr-1"></i> Datos bancarios para transferencias</h6>

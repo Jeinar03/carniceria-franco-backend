@@ -22,6 +22,7 @@ class SiteConfig extends Model
         'facebook_url',
         'instagram_url',
         'whatsapp',
+        'mensaje_whatsapp',
         'banco',
         'titular_cuenta',
         'numero_cuenta',
