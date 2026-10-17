@@ -29,6 +29,7 @@ class SitioController extends Component
     public $configFacebook   = '';
     public $configInstagram  = '';
     public $configWhatsapp   = '';
+    public $configMensajeWhatsapp = '';
     public $configBanco        = '';
     public $configTitular      = '';
     public $configNumeroCuenta = '';
@@ -143,6 +144,7 @@ class SitioController extends Component
             $this->configFacebook   = $config->facebook_url  ?? '';
             $this->configInstagram  = $config->instagram_url ?? '';
             $this->configWhatsapp   = $config->whatsapp      ?? '';
+            $this->configMensajeWhatsapp = $config->mensaje_whatsapp ?? '';
             $this->configBanco        = $config->banco          ?? '';
             $this->configTitular      = $config->titular_cuenta ?? '';
             $this->configNumeroCuenta = $config->numero_cuenta  ?? '';
@@ -175,6 +177,7 @@ class SitioController extends Component
             'configFacebook'  => 'nullable|url|max:255',
             'configInstagram' => 'nullable|url|max:255',
             'configWhatsapp'  => 'nullable|string|max:30',
+            'configMensajeWhatsapp' => 'nullable|string|max:300',
             'configHorarios'  => 'required|array',
             'configHorarios.*.abierto'  => 'required|boolean',
             'configHorarios.*.apertura' => 'nullable|date_format:H:i',
@@ -191,6 +194,7 @@ class SitioController extends Component
             'configNumeroCuenta.regex' => 'El número de cuenta solo lleva dígitos (entre 6 y 20).',
             'configFacebook.url'    => 'La URL de Facebook no es válida.',
             'configInstagram.url'   => 'La URL de Instagram no es válida.',
+            'configMensajeWhatsapp.max' => 'El mensaje de WhatsApp no debe pasar de 300 caracteres.',
             'configLogo.image'      => 'El logo debe ser una imagen.',
             'configLogo.max'        => 'El logo no debe exceder 2 MB.',
             'configHorarios.required' => 'Debe definir los horarios de atención.',
@@ -216,6 +220,7 @@ class SitioController extends Component
                 'facebook_url'  => $this->configFacebook   ?: null,
                 'instagram_url' => $this->configInstagram  ?: null,
                 'whatsapp'      => $this->configWhatsapp   ?: null,
+                'mensaje_whatsapp' => trim($this->configMensajeWhatsapp) ?: null,
                 'banco'          => $this->configBanco        ?: null,
                 'titular_cuenta' => $this->configTitular      ?: null,
                 'numero_cuenta'  => $this->configNumeroCuenta ?: null,
@@ -316,6 +321,7 @@ class SitioController extends Component
         $this->configFacebook   = '';
         $this->configInstagram  = '';
         $this->configWhatsapp   = '';
+        $this->configMensajeWhatsapp = '';
         $this->configBanco        = '';
         $this->configTitular      = '';
         $this->configNumeroCuenta = '';
