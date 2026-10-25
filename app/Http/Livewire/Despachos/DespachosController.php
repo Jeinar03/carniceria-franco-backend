@@ -9,6 +9,7 @@ use App\Models\Sale;
 use App\Models\SaleDetail;
 use App\Services\InventoryService;
 use App\Services\PricingService;
+use App\Support\HoraLocal;
 use App\Models\Product;
 use App\Models\Customers;
 use App\Rules\UbicacionGoogleMaps;
@@ -1063,7 +1064,7 @@ class DespachosController extends Component
             return $error;
         }
 
-        if ($this->editFechaEntrega && $this->editFechaEntrega < now()->toDateString()) {
+        if ($this->editFechaEntrega && $this->editFechaEntrega < HoraLocal::hoy()) {
             return 'La fecha de entrega no puede ser anterior a hoy';
         }
 
@@ -1585,7 +1586,7 @@ class DespachosController extends Component
             return $error;
         }
 
-        if ($this->createFechaEntrega && $this->createFechaEntrega < now()->toDateString()) {
+        if ($this->createFechaEntrega && $this->createFechaEntrega < HoraLocal::hoy()) {
             return 'La fecha de entrega no puede ser anterior a hoy';
         }
 

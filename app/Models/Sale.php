@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Support\HoraLocal;
 use Illuminate\Database\Eloquent\Model;
 
 class Sale extends Model
@@ -204,7 +205,7 @@ class Sale extends Model
     // Scope para pedidos programados a una fecha de entrega futura (posterior a hoy)
     public function scopeProgramadas($query)
     {
-        return $query->whereDate('fecha_entrega', '>', now()->toDateString());
+        return $query->whereDate('fecha_entrega', '>', HoraLocal::hoy());
     }
 
     // Scope: ventas en la cola de Despachos (sin enviar ni entregar) que no estan canceladas
@@ -219,7 +220,7 @@ class Sale extends Model
     {
         return $query->where(function ($q) {
             $q->whereNull('fecha_entrega')
-                ->orWhereDate('fecha_entrega', '<=', now()->toDateString());
+                ->orWhereDate('fecha_entrega', '<=', HoraLocal::hoy());
         });
     }
 
@@ -271,7 +272,7 @@ class Sale extends Model
             return false;
         }
 
-        if ($this->fecha_entrega && $this->fecha_entrega->toDateString() > now()->toDateString()) {
+        if ($this->fecha_entrega && $this->fecha_entrega->toDateString() > HoraLocal::hoy()) {
             return false;
         }
 
@@ -296,9 +297,10 @@ class Sale extends Model
     // Método estático para generar folio único
     public static function generarFolio()
     {
-        $fecha = now()->format('Ymd');
-        $ultimo = self::whereDate('created_at', today())
-            ->orderBy('id', 'desc')
+        // El dia del folio es el de la tienda (Mexico), no el UTC en que se guardan las fechas.
+        $fecha = HoraLocal::ahora()->format('Ymd');
+        $ultimo = self::where('folio', 'like', $fecha . '-%')
+            ->orderBy('folio', 'desc')
             ->first();
 
         $consecutivo = $ultimo ? intval(substr($ultimo->folio, -4)) + 1 : 1;
