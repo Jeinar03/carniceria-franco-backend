@@ -150,7 +150,7 @@
                                         <h6>{{ $venta->customer ? $venta->customer->nombre . ' ' . $venta->customer->apellido : 'Cliente General' }}</h6>
                                     </td>
                                     <td class="text-center">
-                                        <h6>{{ $venta->fecha_venta->format('d/m/Y H:i') }}</h6>
+                                        <h6>{{ \App\Support\HoraLocal::formato($venta->fecha_venta) }}</h6>
                                         @if($venta->fecha_entrega)
                                             <span class="badge badge-warning badge-sm">
                                                 <i class="fas fa-calendar-alt"></i> Entrega: {{ $venta->fecha_entrega->format('d/m/Y') }}

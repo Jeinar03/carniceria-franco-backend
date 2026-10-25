@@ -108,7 +108,7 @@
                                     <td>
                                         <h6 class="mb-0 font-weight-bold">{{ $venta->folio }}</h6>
                                     </td>
-                                    <td>{{ $venta->fecha_venta->format('d/m/Y H:i') }}</td>
+                                    <td>{{ \App\Support\HoraLocal::formato($venta->fecha_venta) }}</td>
                                     <td>
                                         <div class="font-weight-600">{{ $clienteNombre }}</div>
                                         <small class="text-muted">{{ $clienteEmail }}</small>
