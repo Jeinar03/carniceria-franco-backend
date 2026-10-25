@@ -161,6 +161,20 @@ class DireccionEntregaPanelTest extends TestCase
             ->assertDontSee('Copiar datos para el mandadito');
     }
 
+    public function test_el_detalle_de_ventas_muestra_la_direccion_del_pedido_y_no_la_del_perfil(): void
+    {
+        $venta = $this->comprar(['referencias_entrega' => 'Portón negro']);
+
+        Livewire::actingAs($this->admin)
+            ->test(\App\Http\Livewire\Ventas\VentasController::class)
+            ->call('viewDetail', $venta->id)
+            ->assertSee('Entregar en')
+            ->assertSee('Av. Juárez 25, Centro')
+            ->assertSee('Portón negro')
+            ->assertSee('Abrir en Google Maps')
+            ->assertSee('Aviso del mandadito');
+    }
+
     // ---------- Panel: crear y editar ----------
 
     public function test_el_panel_guarda_la_direccion_de_un_pedido_por_mandadito(): void
