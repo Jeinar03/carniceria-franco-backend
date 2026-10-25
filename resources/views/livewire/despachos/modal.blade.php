@@ -58,15 +58,42 @@
                                         <small class="text-muted d-block">Telefono</small>
                                         <strong>{{ $sale->customer?->telefono ?? 'N/A' }}</strong>
                                     </div>
-                                    <div class="col-md-4 col-sm-8 mb-2 mb-md-0">
-                                        <small class="text-muted d-block">Direccion</small>
-                                        <strong>{{ $sale->customer?->direccion ?? 'N/A' }}</strong>
-                                    </div>
-                                    <div class="col-md-2 col-sm-4">
-                                        <small class="text-muted d-block">Ciudad</small>
-                                        <strong>{{ $sale->customer?->ciudad ?? 'N/A' }}</strong>
-                                    </div>
+                                    @if($sale->esParaRecoger())
+                                        <div class="col-md-6 col-sm-12">
+                                            <small class="text-muted d-block">Entrega</small>
+                                            <strong>El cliente pasa a recogerlo a la carnicería</strong>
+                                        </div>
+                                    @else
+                                        <div class="col-md-4 col-sm-8 mb-2 mb-md-0">
+                                            <small class="text-muted d-block">Entregar en</small>
+                                            <strong>{{ $sale->direccionDeEntrega() ?? 'N/A' }}</strong>
+                                            @if($sale->referenciasDeEntrega())
+                                                <small class="d-block text-muted">Referencias: {{ $sale->referenciasDeEntrega() }}</small>
+                                            @endif
+                                        </div>
+                                        <div class="col-md-2 col-sm-4">
+                                            <small class="text-muted d-block">Ciudad</small>
+                                            <strong>{{ $sale->customer?->ciudad ?? 'N/A' }}</strong>
+                                        </div>
+                                    @endif
                                 </div>
+                                @unless($sale->esParaRecoger())
+                                    <div class="mt-2">
+                                        @if($sale->enlaceMapaEntrega())
+                                            <a href="{{ $sale->enlaceMapaEntrega() }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mr-1">
+                                                <i class="fas fa-map-marker-alt"></i> Abrir en Google Maps
+                                            </a>
+                                        @endif
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                data-texto="{{ $sale->textoParaMandadito() }}"
+                                                onclick="navigator.clipboard.writeText(this.dataset.texto); this.textContent = '¡Copiado!';">
+                                            <i class="fas fa-copy"></i> Copiar datos para el mandadito
+                                        </button>
+                                        @if($sale->aviso_mandadito_aceptado_at)
+                                            <small class="text-muted ml-2">El cliente aceptó el aviso del costo del mandadito el {{ $sale->aviso_mandadito_aceptado_at->format('d/m/Y H:i') }}</small>
+                                        @endif
+                                    </div>
+                                @endunless
                             </div>
                         </div>
                     </div>

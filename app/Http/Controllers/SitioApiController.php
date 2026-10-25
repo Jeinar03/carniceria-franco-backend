@@ -31,6 +31,8 @@ class SitioApiController extends Controller
 
             $data                = $config->toArray();
             $data['logo_url']    = $config->logo_url;
+            // Para quien elige recoger: el link capturado o una busqueda en Maps con la direccion.
+            $data['enlace_mapa'] = $config->enlaceMapa();
             // La tienda evalúa el horario en esta zona, sin importar la hora del dispositivo del cliente.
             $data['zona_horaria'] = config('app.horario_timezone');
 

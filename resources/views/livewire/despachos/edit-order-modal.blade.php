@@ -51,6 +51,16 @@
                                     </select>
                                 </div>
 
+                                @if($editTipoEntrega === 'mandadito')
+                                    <div class="form-group">
+                                        <label>Dirección de entrega</label>
+                                        <input type="text" wire:model.defer="editDireccionEntrega" class="form-control" maxlength="255" placeholder="Calle, número y colonia">
+                                        <input type="text" wire:model.defer="editReferenciasEntrega" class="form-control mt-1" maxlength="255" placeholder="Referencias (casa azul, portón negro)">
+                                        <input type="text" wire:model.defer="editUbicacionUrl" class="form-control mt-1" maxlength="500" placeholder="Link de Google Maps (opcional)">
+                                        <small class="text-muted d-block mt-1">Si lo dejas vacío se usa la dirección guardada del cliente.</small>
+                                    </div>
+                                @endif
+
                                 <div class="form-group">
                                     <label>Fecha de entrega</label>
                                     <input type="date" wire:model="editFechaEntrega" class="form-control">

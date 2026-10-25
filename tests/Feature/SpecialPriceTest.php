@@ -90,6 +90,7 @@ class SpecialPriceTest extends TestCase
         Sanctum::actingAs($cliente, ['cliente']);
 
         $this->postJson('/api/v1/ventas', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'transferencia',
             'productos' => [['product_id' => $producto->id, 'cantidad' => 2]],
         ])->assertStatus(201);
@@ -110,6 +111,7 @@ class SpecialPriceTest extends TestCase
         Sanctum::actingAs($cliente, ['cliente']);
 
         $this->postJson('/api/v1/ventas', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'transferencia',
             'productos' => [['product_id' => $producto->id, 'cantidad' => 2]],
         ])->assertStatus(201);
@@ -128,6 +130,7 @@ class SpecialPriceTest extends TestCase
         Sanctum::actingAs($cliente, ['cliente']);
 
         $this->postJson('/api/v1/ventas', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'transferencia',
             'productos' => [['product_id' => $producto->id, 'cantidad' => 3]],
         ])->assertStatus(201);
@@ -145,6 +148,7 @@ class SpecialPriceTest extends TestCase
         Sanctum::actingAs($cliente, ['cliente']);
 
         $this->postJson('/api/v1/ventas', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'transferencia',
             'productos' => [['product_id' => $producto->id, 'cantidad' => 1]],
         ])->assertStatus(201);
@@ -163,6 +167,7 @@ class SpecialPriceTest extends TestCase
         Sanctum::actingAs($otro, ['cliente']);
 
         $this->postJson('/api/v1/ventas', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'transferencia',
             'productos' => [['product_id' => $producto->id, 'cantidad' => 1]],
         ])->assertStatus(201);
@@ -181,6 +186,7 @@ class SpecialPriceTest extends TestCase
 
         // $250 de un producto a $100/kg => 2.5 kg, subtotal 250
         $this->postJson('/api/v1/ventas', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'transferencia',
             'productos' => [['product_id' => $producto->id, 'cantidad' => 1, 'monto_pesos' => 250]],
         ])->assertStatus(201);

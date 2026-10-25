@@ -4,6 +4,7 @@ namespace App\Http\Livewire\Sitio;
 
 use App\Models\SiteAlert;
 use App\Rules\ClabeInterbancaria;
+use App\Rules\UbicacionGoogleMaps;
 use App\Models\SiteConfig;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -24,6 +25,7 @@ class SitioController extends Component
     public $configId         = null;
     public $configNombre     = '';
     public $configDireccion  = '';
+    public $configUbicacionUrl = '';
     public $configCorreo     = '';
     public $configTelefono   = '';
     public $configFacebook   = '';
@@ -139,6 +141,7 @@ class SitioController extends Component
             $this->configId         = $config->id;
             $this->configNombre     = $config->nombre;
             $this->configDireccion  = $config->direccion     ?? '';
+            $this->configUbicacionUrl = $config->ubicacion_url ?? '';
             $this->configCorreo     = $config->correo        ?? '';
             $this->configTelefono   = $config->telefono      ?? '';
             $this->configFacebook   = $config->facebook_url  ?? '';
@@ -164,8 +167,10 @@ class SitioController extends Component
         // La cuenta y la CLABE se escriben a veces con espacios o guiones: se limpian antes de validar.
         $this->configNumeroCuenta = preg_replace('/[\s-]+/', '', (string) $this->configNumeroCuenta);
         $this->configClabe        = preg_replace('/[\s-]+/', '', (string) $this->configClabe);
+        $this->configUbicacionUrl = trim((string) $this->configUbicacionUrl);
 
         $rules = [
+            'configUbicacionUrl' => ['nullable', 'string', new UbicacionGoogleMaps()],
             'configBanco'        => 'nullable|string|max:60',
             'configTitular'      => 'nullable|string|max:100',
             'configNumeroCuenta' => ['nullable', 'regex:/^\d{6,20}$/'],
@@ -215,6 +220,7 @@ class SitioController extends Component
             $data = [
                 'nombre'        => $this->configNombre,
                 'direccion'     => $this->configDireccion  ?: null,
+                'ubicacion_url' => $this->configUbicacionUrl ?: null,
                 'correo'        => $this->configCorreo     ?: null,
                 'telefono'      => $this->configTelefono   ?: null,
                 'facebook_url'  => $this->configFacebook   ?: null,
@@ -316,6 +322,7 @@ class SitioController extends Component
         $this->configId         = null;
         $this->configNombre     = '';
         $this->configDireccion  = '';
+        $this->configUbicacionUrl = '';
         $this->configCorreo     = '';
         $this->configTelefono   = '';
         $this->configFacebook   = '';

@@ -17,6 +17,7 @@ class SiteConfig extends Model
         'nombre',
         'logo',
         'direccion',
+        'ubicacion_url',
         'correo',
         'telefono',
         'facebook_url',
@@ -37,6 +38,18 @@ class SiteConfig extends Model
         'limitar_horario' => 'boolean',
         'activo'          => 'boolean',
     ];
+
+    /** Link para llegar a la carniceria: el de Google Maps capturado o, si no hay, una busqueda con la direccion. */
+    public function enlaceMapa(): ?string
+    {
+        if (filled($this->ubicacion_url)) {
+            return $this->ubicacion_url;
+        }
+
+        return filled($this->direccion)
+            ? 'https://www.google.com/maps/search/?api=1&query=' . urlencode($this->direccion)
+            : null;
+    }
 
     /** Configuracion activa del sitio. Si por error hay varias, gana la editada mas recientemente. */
     public static function activa(): ?self

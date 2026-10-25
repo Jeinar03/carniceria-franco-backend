@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Sale;
+use App\Support\DatosEntrega;
 use App\Models\SaleDetail;
 use App\Models\Product;
 use App\Models\Customers;
@@ -83,8 +84,7 @@ class SalesController extends Controller
             'productos.*.monto_pesos' => 'nullable|numeric|min:0', // Para venta por monto
             'notas' => 'nullable|string',
             'fecha_entrega' => 'nullable|date|after_or_equal:today', // Pedido para un día posterior (opcional)
-            'tipo_entrega' => 'nullable|in:' . implode(',', Sale::TIPOS_ENTREGA), // Sin el campo: mandadito
-        ]);
+        ] + DatosEntrega::reglas($request->input('tipo_entrega')), DatosEntrega::mensajes());
 
         if ($validator->fails()) {
             return response()->json([
@@ -175,9 +175,10 @@ class SalesController extends Controller
                 'notas' => $request->notas,
                 'estado_envio' => 'Pendiente', // Estado inicial para seguimiento
                 'transferencia_estado' => $request->metodo_pago === 'transferencia' ? 'pendiente' : null,
-            ];
+            ] + DatosEntrega::paraVenta($request);
 
             $sale = Sale::create($saleData);
+            DatosEntrega::guardarEnCliente($request, $request->user());
 
             // Orden estable para evitar bloqueos cruzados entre ventas concurrentes.
             usort($detalles, function ($left, $right) {
