@@ -89,7 +89,7 @@
                                                     <td>
                                                         <div class="font-weight-600">{{ $detail->producto_nombre }}</div>
                                                         @if($detail->product && $detail->product->imagen)
-                                                            <img src="{{ asset($detail->product->imagen) }}"
+                                                            <img src="{{ $detail->product->imagen_url }}"
                                                                  alt="{{ $detail->producto_nombre }}"
                                                                  class="rounded mt-1"
                                                                  style="width: 38px; height: 38px; object-fit: cover;">
@@ -125,7 +125,7 @@
                                 <div><small class="text-muted">Nombre</small><strong class="d-block">{{ $sale->customer ? $sale->customer->nombre . ' ' . $sale->customer->apellido : 'Cliente general' }}</strong></div>
                                 <div><small class="text-muted">Correo</small><strong class="d-block">{{ $sale->customer?->correo ?? 'Sin correo' }}</strong></div>
                                 <div><small class="text-muted">Telefono</small><strong class="d-block">{{ $sale->customer?->telefono ?? 'N/A' }}</strong></div>
-                                <div><small class="text-muted">Direccion</small><strong class="d-block">{{ $sale->customer?->direccion ?? 'N/A' }}</strong></div>
+                                <div><small class="text-muted">Direccion guardada</small><strong class="d-block">{{ $sale->customer?->direccion ?? 'N/A' }}</strong></div>
                                 <div><small class="text-muted">Ciudad</small><strong class="d-block">{{ ($sale->customer?->ciudad ?? 'N/A') . ', ' . ($sale->customer?->estado ?? '') }}</strong></div>
                                 <div><small class="text-muted">Tipo</small><strong class="d-block">{{ $sale->customer ? ucfirst($sale->customer->tipo_cliente ?? 'minorista') : 'N/A' }}</strong></div>
                             </div>
@@ -138,6 +138,24 @@
                             <div class="card-body py-3 px-3 sales-info-grid">
                                 <div><small class="text-muted">Metodo pago</small><strong class="d-block">{{ ucfirst($sale->metodo_pago) }}</strong></div>
                                 <div><small class="text-muted">Notas</small><strong class="d-block">{{ $sale->notas ?? 'Sin notas' }}</strong></div>
+                                @if($sale->esParaRecoger())
+                                    <div><small class="text-muted">Entrega</small><strong class="d-block">Recoger en la carnicería</strong></div>
+                                @else
+                                    <div><small class="text-muted">Entrega</small><strong class="d-block">Mandadito</strong></div>
+                                    <div>
+                                        <small class="text-muted">Entregar en</small>
+                                        <strong class="d-block">{{ $sale->direccionDeEntrega() ?? 'N/A' }}</strong>
+                                        @if($sale->referenciasDeEntrega())
+                                            <small class="d-block text-muted">Referencias: {{ $sale->referenciasDeEntrega() }}</small>
+                                        @endif
+                                        @if($sale->enlaceMapaEntrega())
+                                            <a href="{{ $sale->enlaceMapaEntrega() }}" target="_blank" rel="noopener noreferrer"><i class="fas fa-map-marker-alt"></i> Abrir en Google Maps</a>
+                                        @endif
+                                    </div>
+                                    @if($sale->aviso_mandadito_aceptado_at)
+                                        <div><small class="text-muted">Aviso del mandadito</small><strong class="d-block">Aceptado el {{ $sale->aviso_mandadito_aceptado_at->format('d/m/Y H:i') }}</strong></div>
+                                    @endif
+                                @endif
                             </div>
                         </div>
 
