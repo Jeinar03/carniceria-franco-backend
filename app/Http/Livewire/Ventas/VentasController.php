@@ -9,6 +9,7 @@ use App\Models\Sale;
 use App\Models\Customers;
 use App\Models\Product;
 use App\Services\InventoryService;
+use App\Support\HoraLocal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -52,11 +53,11 @@ class VentasController extends Component
     {
         // Establecer fechas por defecto solo si no vienen definidas.
         if (empty($this->fechaFin)) {
-            $this->fechaFin = date('Y-m-d');
+            $this->fechaFin = HoraLocal::hoy();
         }
 
         if (empty($this->fechaInicio)) {
-            $this->fechaInicio = date('Y-m-d', strtotime('-30 days'));
+            $this->fechaInicio = HoraLocal::ahora()->subDays(30)->format('Y-m-d');
         }
     }
 
@@ -154,8 +155,8 @@ class VentasController extends Component
         $this->search = '';
         $this->filtroEstatus = '';
         $this->filtroMetodoPago = '';
-        $this->fechaInicio = date('Y-m-d', strtotime('-30 days'));
-        $this->fechaFin = date('Y-m-d');
+        $this->fechaInicio = HoraLocal::ahora()->subDays(30)->format('Y-m-d');
+        $this->fechaFin = HoraLocal::hoy();
         $this->resetPage();
     }
 
@@ -212,12 +213,16 @@ class VentasController extends Component
             $query->where('metodo_pago', $this->filtroMetodoPago);
         }
 
+        // Los dias del filtro son de la tienda (Mexico); fecha_venta se guarda en UTC.
         if ($this->fechaInicio && $this->fechaFin) {
-            $query->whereBetween('fecha_venta', [$this->fechaInicio . ' 00:00:00', $this->fechaFin . ' 23:59:59']);
+            [$desde, $hasta] = HoraLocal::rangoUtc($this->fechaInicio, $this->fechaFin);
+            $query->whereBetween('fecha_venta', [$desde, $hasta]);
         } elseif ($this->fechaInicio) {
-            $query->where('fecha_venta', '>=', $this->fechaInicio . ' 00:00:00');
+            [$desde] = HoraLocal::rangoUtc($this->fechaInicio, $this->fechaInicio);
+            $query->where('fecha_venta', '>=', $desde);
         } elseif ($this->fechaFin) {
-            $query->where('fecha_venta', '<=', $this->fechaFin . ' 23:59:59');
+            [, $hasta] = HoraLocal::rangoUtc($this->fechaFin, $this->fechaFin);
+            $query->where('fecha_venta', '<=', $hasta);
         }
 
         return $query;

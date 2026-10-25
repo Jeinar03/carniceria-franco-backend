@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Sale;
 use App\Support\DatosEntrega;
+use App\Support\HoraLocal;
 use App\Models\SaleDetail;
 use App\Models\Product;
 use App\Models\Customers;
@@ -83,7 +84,7 @@ class SalesController extends Controller
             'productos.*.cantidad' => 'required|numeric|min:0.01',
             'productos.*.monto_pesos' => 'nullable|numeric|min:0', // Para venta por monto
             'notas' => 'nullable|string',
-            'fecha_entrega' => 'nullable|date|after_or_equal:today', // Pedido para un día posterior (opcional)
+            'fecha_entrega' => 'nullable|date|after_or_equal:' . HoraLocal::hoy(), // Pedido para un día posterior (opcional)
         ] + DatosEntrega::reglas($request->input('tipo_entrega')), DatosEntrega::mensajes());
 
         if ($validator->fails()) {
