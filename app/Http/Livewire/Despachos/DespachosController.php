@@ -11,6 +11,7 @@ use App\Services\InventoryService;
 use App\Services\PricingService;
 use App\Models\Product;
 use App\Models\Customers;
+use App\Rules\UbicacionGoogleMaps;
 use Carbon\Carbon;
 use App\Services\OrderNotificationService;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,10 @@ class DespachosController extends Component
     public $createDescuento = 0;
     public $createFechaEntrega = '';
     public $createTipoEntrega = 'mandadito';
+    // Direccion de entrega del mandadito; vacia = se usa la guardada del cliente.
+    public $createDireccionEntrega = '';
+    public $createReferenciasEntrega = '';
+    public $createUbicacionUrl = '';
     public $productSearch = '';
     public $cart = [];
 
@@ -72,6 +77,9 @@ class DespachosController extends Component
     public $editDescuento = 0;
     public $editFechaEntrega = '';
     public $editTipoEntrega = 'mandadito';
+    public $editDireccionEntrega = '';
+    public $editReferenciasEntrega = '';
+    public $editUbicacionUrl = '';
     public $editProductSearch = '';
     public $editCart = [];
 
@@ -452,6 +460,9 @@ class DespachosController extends Component
                     'fecha_venta' => now(),
                     'fecha_entrega' => $this->createFechaEntrega ?: null,
                     'tipo_entrega' => $this->createTipoEntrega,
+                    'direccion_entrega' => $this->direccionParaGuardar($this->createTipoEntrega, $this->createDireccionEntrega),
+                    'referencias_entrega' => $this->direccionParaGuardar($this->createTipoEntrega, $this->createReferenciasEntrega),
+                    'ubicacion_url' => $this->direccionParaGuardar($this->createTipoEntrega, $this->createUbicacionUrl),
                     'subtotal' => $subtotal,
                     'descuento' => $descuento,
                     'impuestos' => $impuestos,
@@ -572,6 +583,9 @@ class DespachosController extends Component
         $this->createDescuento = 0;
         $this->createFechaEntrega = '';
         $this->createTipoEntrega = Sale::ENTREGA_MANDADITO;
+        $this->createDireccionEntrega = '';
+        $this->createReferenciasEntrega = '';
+        $this->createUbicacionUrl = '';
         $this->createEntregadoMostrador = true;
         $this->productSearch = '';
         $this->cart = [];
@@ -609,6 +623,9 @@ class DespachosController extends Component
         $this->editDescuento = (float) $sale->descuento;
         $this->editFechaEntrega = $sale->fecha_entrega ? $sale->fecha_entrega->format('Y-m-d') : '';
         $this->editTipoEntrega = $sale->tipo_entrega ?: Sale::ENTREGA_MANDADITO;
+        $this->editDireccionEntrega = $sale->direccion_entrega ?? '';
+        $this->editReferenciasEntrega = $sale->referencias_entrega ?? '';
+        $this->editUbicacionUrl = $sale->ubicacion_url ?? '';
         $this->editProductSearch = '';
         $this->editCart = [];
 
@@ -645,6 +662,9 @@ class DespachosController extends Component
         $this->editDescuento = 0;
         $this->editFechaEntrega = '';
         $this->editTipoEntrega = Sale::ENTREGA_MANDADITO;
+        $this->editDireccionEntrega = '';
+        $this->editReferenciasEntrega = '';
+        $this->editUbicacionUrl = '';
         $this->editProductSearch = '';
         $this->editCart = [];
     }
@@ -961,6 +981,9 @@ class DespachosController extends Component
                 $sale->notas = $this->editNotas;
                 $sale->fecha_entrega = $this->editFechaEntrega ?: null;
                 $sale->tipo_entrega = $this->editTipoEntrega;
+                $sale->direccion_entrega = $this->direccionParaGuardar($this->editTipoEntrega, $this->editDireccionEntrega);
+                $sale->referencias_entrega = $this->direccionParaGuardar($this->editTipoEntrega, $this->editReferenciasEntrega);
+                $sale->ubicacion_url = $this->direccionParaGuardar($this->editTipoEntrega, $this->editUbicacionUrl);
                 $sale->subtotal = $subtotal;
                 $sale->descuento = $descuento;
                 $sale->total = $total;
@@ -1034,6 +1057,10 @@ class DespachosController extends Component
 
         if (!in_array($this->editTipoEntrega, Sale::TIPOS_ENTREGA, true)) {
             return 'Forma de entrega no valida';
+        }
+
+        if ($error = $this->errorDeDireccionEntrega($this->editDireccionEntrega, $this->editReferenciasEntrega, $this->editUbicacionUrl)) {
+            return $error;
         }
 
         if ($this->editFechaEntrega && $this->editFechaEntrega < now()->toDateString()) {
@@ -1439,6 +1466,28 @@ class DespachosController extends Component
         }
     }
 
+    /** Direccion, referencias o link capturados en el panel: solo se guardan si el pedido va por mandadito. */
+    private function direccionParaGuardar(string $tipoEntrega, $valor): ?string
+    {
+        $valor = trim((string) $valor);
+
+        return ($tipoEntrega === Sale::ENTREGA_MANDADITO && $valor !== '') ? $valor : null;
+    }
+
+    private function errorDeDireccionEntrega($direccion, $referencias, $ubicacionUrl): ?string
+    {
+        if (mb_strlen(trim((string) $direccion)) > 255 || mb_strlen(trim((string) $referencias)) > 255) {
+            return 'La direccion y las referencias no deben pasar de 255 caracteres';
+        }
+
+        $ubicacionUrl = trim((string) $ubicacionUrl);
+        if ($ubicacionUrl !== '' && !(new UbicacionGoogleMaps())->passes('ubicacion_url', $ubicacionUrl)) {
+            return 'El link de ubicacion debe ser de Google Maps';
+        }
+
+        return null;
+    }
+
     public function render()
     {
         $baseQuery = Sale::with(['customer', 'details'])->enColaDespacho();
@@ -1530,6 +1579,10 @@ class DespachosController extends Component
 
         if (!in_array($this->createTipoEntrega, Sale::TIPOS_ENTREGA, true)) {
             return 'Forma de entrega no valida';
+        }
+
+        if ($error = $this->errorDeDireccionEntrega($this->createDireccionEntrega, $this->createReferenciasEntrega, $this->createUbicacionUrl)) {
+            return $error;
         }
 
         if ($this->createFechaEntrega && $this->createFechaEntrega < now()->toDateString()) {

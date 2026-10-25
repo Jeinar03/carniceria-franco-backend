@@ -112,6 +112,7 @@ class MercadoPagoFirmaWebhookTest extends TestCase
 
         $producto = Product::where('activo', true)->where('en_oferta', false)->firstOrFail();
         $res = $this->postJson('/api/v1/mercadopago/create-preference', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'mercado_pago',
             'productos' => [['product_id' => $producto->id, 'cantidad' => 1]],
         ]);

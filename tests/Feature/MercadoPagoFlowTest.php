@@ -95,6 +95,7 @@ class MercadoPagoFlowTest extends TestCase
         Sanctum::actingAs($cliente, ['cliente']);
 
         $res = $this->postJson('/api/v1/mercadopago/create-preference', array_merge([
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'mercado_pago',
             'productos' => array_map(
                 fn (Product $p) => ['product_id' => $p->id, 'cantidad' => 1],
@@ -139,6 +140,7 @@ class MercadoPagoFlowTest extends TestCase
         [$producto] = $this->productos();
 
         $this->postJson('/api/v1/mercadopago/create-preference', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'mercado_pago',
             'productos' => [['product_id' => $producto->id, 'cantidad' => 1]],
         ])
@@ -417,11 +419,43 @@ class MercadoPagoFlowTest extends TestCase
         Sanctum::actingAs($this->cliente('entrega2@test.com'), ['cliente']);
 
         $this->postJson('/api/v1/mercadopago/create-preference', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'mercado_pago',
             'tipo_entrega' => 'dron',
             'productos' => [['product_id' => $this->productos()[0]->id, 'cantidad' => 1]],
         ])->assertStatus(422);
 
         $this->assertSame(0, Sale::count());
+    }
+
+    public function test_mandadito_exige_el_aviso_y_la_direccion_tambien_con_mercado_pago(): void
+    {
+        Sanctum::actingAs($this->cliente('entrega3@test.com'), ['cliente']);
+
+        $this->postJson('/api/v1/mercadopago/create-preference', [
+            'metodo_pago' => 'mercado_pago',
+            'tipo_entrega' => 'mandadito',
+            'productos' => [['product_id' => $this->productos()[0]->id, 'cantidad' => 1]],
+        ])->assertStatus(422)->assertJsonValidationErrors(['acepta_aviso_mandadito', 'direccion_entrega'], 'data');
+
+        $this->assertSame(0, Sale::count());
+    }
+
+    public function test_la_preferencia_guarda_direccion_aviso_y_la_guarda_en_el_perfil(): void
+    {
+        $cliente = $this->cliente('entrega4@test.com');
+
+        $venta = $this->crearVentaPendiente($cliente, 1, [
+            'direccion_entrega' => 'Av. Juárez 25, Centro',
+            'referencias_entrega' => 'Casa azul',
+            'ubicacion_url' => 'https://maps.app.goo.gl/AbC123',
+            'guardar_como_mi_direccion' => true,
+        ]);
+
+        $this->assertSame('Av. Juárez 25, Centro', $venta->direccion_entrega);
+        $this->assertSame('https://maps.app.goo.gl/AbC123', $venta->ubicacion_url);
+        $this->assertNotNull($venta->aviso_mandadito_aceptado_at);
+        $this->assertSame('Av. Juárez 25, Centro', $cliente->fresh()->direccion);
+        $this->assertSame('Casa azul', $cliente->fresh()->referencias);
     }
 }

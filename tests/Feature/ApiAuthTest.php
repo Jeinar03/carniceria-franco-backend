@@ -85,6 +85,7 @@ class ApiAuthTest extends TestCase
             'apellido' => 'Lopez',
             'correo' => 'ana@test.com',
             'password' => 'secreto123',
+            'telefono' => '7531234567',
         ]);
 
         $res->assertStatus(201)->assertJsonPath('success', true);

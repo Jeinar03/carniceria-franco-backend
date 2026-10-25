@@ -85,6 +85,19 @@
                                        placeholder="Ej: Av. Siempre Viva 742, Springfield">
                             </div>
 
+                            <div class="col-md-12 form-group">
+                                <label class="cfg-label">Ubicación de la carnicería en Google Maps</label>
+                                <input type="text" class="form-control @error('configUbicacionUrl') is-invalid @enderror"
+                                       wire:model.lazy="configUbicacionUrl"
+                                       placeholder="https://maps.app.goo.gl/...">
+                                @error('configUbicacionUrl')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                                <small class="text-muted d-block mt-1">
+                                    La ven los clientes que eligen recoger su pedido. En Google Maps busca la carnicería, toca Compartir y Copiar link.
+                                </small>
+                            </div>
+
                             <div class="col-md-6 form-group">
                                 <label class="cfg-label">Correo electrónico</label>
                                 <input type="email" class="form-control @error('configCorreo') is-invalid @enderror"
@@ -140,6 +153,20 @@
                                        wire:model.lazy="configWhatsapp"
                                        placeholder="Ej: 7531234567">
                                 <small class="text-muted">Número de 10 dígitos, sin el código del país (la tienda le agrega el 52 sola).</small>
+                            </div>
+
+                            <div class="col-12 form-group">
+                                <label class="cfg-label">
+                                    <i class="fab fa-whatsapp text-success mr-1"></i> Mensaje de WhatsApp
+                                </label>
+                                <textarea class="form-control @error('configMensajeWhatsapp') is-invalid @enderror"
+                                          wire:model.lazy="configMensajeWhatsapp"
+                                          rows="2" maxlength="300"
+                                          placeholder="Hola, quiero hacer un pedido o pedir información."></textarea>
+                                @error('configMensajeWhatsapp')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                                <small class="text-muted">Texto que ya aparece escrito cuando el cliente presiona un botón de WhatsApp en la tienda. Si lo dejas vacío, se usa el del ejemplo.</small>
                             </div>
 
                             {{-- Datos bancarios --}}

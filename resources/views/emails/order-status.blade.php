@@ -371,21 +371,32 @@
                     {{ $linea }}<br>
                     @endforeach
                     @endif
+                    @if(!empty($config['punto_recoger']['mapa']))
+                    <a href="{{ $config['punto_recoger']['mapa'] }}" style="color: #007bff;">Cómo llegar (Google Maps)</a><br>
+                    @endif
                     <br>
                     Menciona tu número de pedido ({{ $order['folio'] }}) al llegar.
                 </div>
             </div>
             @endif
 
-            <!-- Customer Address -->
-            @if($customer->direccion && empty($config['punto_recoger']))
+            <!-- Direccion de entrega del mandadito -->
+            @if(empty($config['punto_recoger']) && ! $sale->esParaRecoger() && $sale->direccionDeEntrega())
             <div class="address-card">
                 <h3>Dirección de Entrega</h3>
                 <div class="address-info">
-                    <strong>Dirección:</strong> {{ $customer->direccion }}<br>
-                    @if($customer->telefono)
-                    <strong>Teléfono de contacto:</strong> {{ $customer->telefono }}
+                    <strong>Dirección:</strong> {{ $sale->direccionDeEntrega() }}<br>
+                    @if($sale->referenciasDeEntrega())
+                    <strong>Referencias:</strong> {{ $sale->referenciasDeEntrega() }}<br>
                     @endif
+                    @if($customer && $customer->telefono)
+                    <strong>Teléfono de contacto:</strong> {{ $customer->telefono }}<br>
+                    @endif
+                    @if($sale->enlaceMapaEntrega())
+                    <a href="{{ $sale->enlaceMapaEntrega() }}" style="color: #007bff;">Ver en Google Maps</a><br>
+                    @endif
+                    <br>
+                    Recuerda: el mandadito tiene un costo aparte y lo pagas directamente a él al recibir tu pedido; no está incluido en el total.
                 </div>
             </div>
             @endif

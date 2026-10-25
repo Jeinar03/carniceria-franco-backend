@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\SeguimientoClientesImagenes;
 use Illuminate\Http\Request;
 use App\Models\Customers;
+use App\Rules\UbicacionGoogleMaps;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -20,8 +21,11 @@ class CustomersController extends Controller
             'apellido2' => 'nullable|string',
             'correo' => 'required|email|unique:customers',
             'password' => 'required|string|min:6',
-            'telefono' => 'nullable|string|min:10',
-            'direccion' => 'nullable|string',
+            // El teléfono es obligatorio: lo necesita el mandadito para localizar al cliente.
+            'telefono' => 'required|string|min:10|max:20',
+            'direccion' => 'nullable|string|max:255',
+            'referencias' => 'nullable|string|max:255',
+            'ubicacion_url' => ['nullable', 'string', new UbicacionGoogleMaps()],
             'ciudad' => 'nullable|string',
             'estado' => 'nullable|string',
             'codigo_postal' => 'nullable|string',
@@ -34,6 +38,7 @@ class CustomersController extends Controller
             'correo.unique' => 'Este correo ya está registrado',
             'password.required' => 'Ingresa una contraseña',
             'password.min' => 'La contraseña debe tener al menos 6 caracteres',
+            'telefono.required' => 'Ingresa tu teléfono de 10 dígitos',
             'telefono.min' => 'El teléfono debe tener al menos 10 dígitos',
         ]);
 
@@ -55,6 +60,8 @@ class CustomersController extends Controller
                 'password' => Hash::make($request->password),
                 'telefono' => $request->telefono,
                 'direccion' => $request->direccion,
+                'referencias' => $request->referencias,
+                'ubicacion_url' => $request->ubicacion_url,
                 'ciudad' => $request->ciudad,
                 'estado' => $request->estado,
                 'codigo_postal' => $request->codigo_postal,
@@ -223,7 +230,9 @@ class CustomersController extends Controller
             'apellido2' => 'nullable|string',
             'correo' => 'sometimes|required|email|unique:customers,correo,' . $id,
             'telefono' => 'nullable|string|min:10',
-            'direccion' => 'nullable|string',
+            'direccion' => 'nullable|string|max:255',
+            'referencias' => 'nullable|string|max:255',
+            'ubicacion_url' => ['nullable', 'string', new UbicacionGoogleMaps()],
             'ciudad' => 'nullable|string',
             'estado' => 'nullable|string',
             'codigo_postal' => 'nullable|string',
@@ -261,6 +270,8 @@ class CustomersController extends Controller
                 'correo',
                 'telefono',
                 'direccion',
+                'referencias',
+                'ubicacion_url',
                 'ciudad',
                 'estado',
                 'codigo_postal',

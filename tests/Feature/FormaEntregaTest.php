@@ -65,6 +65,7 @@ class FormaEntregaTest extends TestCase
         Sanctum::actingAs($this->cliente, ['cliente']);
 
         return $this->postJson('/api/v1/ventas', array_merge([
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'transferencia',
             'productos' => [['product_id' => $this->producto()->id, 'cantidad' => 1]],
         ], $extra));

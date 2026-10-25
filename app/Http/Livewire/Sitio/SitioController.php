@@ -4,7 +4,9 @@ namespace App\Http\Livewire\Sitio;
 
 use App\Models\SiteAlert;
 use App\Rules\ClabeInterbancaria;
+use App\Rules\UbicacionGoogleMaps;
 use App\Models\SiteConfig;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -23,11 +25,13 @@ class SitioController extends Component
     public $configId         = null;
     public $configNombre     = '';
     public $configDireccion  = '';
+    public $configUbicacionUrl = '';
     public $configCorreo     = '';
     public $configTelefono   = '';
     public $configFacebook   = '';
     public $configInstagram  = '';
     public $configWhatsapp   = '';
+    public $configMensajeWhatsapp = '';
     public $configBanco        = '';
     public $configTitular      = '';
     public $configNumeroCuenta = '';
@@ -137,11 +141,13 @@ class SitioController extends Component
             $this->configId         = $config->id;
             $this->configNombre     = $config->nombre;
             $this->configDireccion  = $config->direccion     ?? '';
+            $this->configUbicacionUrl = $config->ubicacion_url ?? '';
             $this->configCorreo     = $config->correo        ?? '';
             $this->configTelefono   = $config->telefono      ?? '';
             $this->configFacebook   = $config->facebook_url  ?? '';
             $this->configInstagram  = $config->instagram_url ?? '';
             $this->configWhatsapp   = $config->whatsapp      ?? '';
+            $this->configMensajeWhatsapp = $config->mensaje_whatsapp ?? '';
             $this->configBanco        = $config->banco          ?? '';
             $this->configTitular      = $config->titular_cuenta ?? '';
             $this->configNumeroCuenta = $config->numero_cuenta  ?? '';
@@ -161,8 +167,10 @@ class SitioController extends Component
         // La cuenta y la CLABE se escriben a veces con espacios o guiones: se limpian antes de validar.
         $this->configNumeroCuenta = preg_replace('/[\s-]+/', '', (string) $this->configNumeroCuenta);
         $this->configClabe        = preg_replace('/[\s-]+/', '', (string) $this->configClabe);
+        $this->configUbicacionUrl = trim((string) $this->configUbicacionUrl);
 
         $rules = [
+            'configUbicacionUrl' => ['nullable', 'string', new UbicacionGoogleMaps()],
             'configBanco'        => 'nullable|string|max:60',
             'configTitular'      => 'nullable|string|max:100',
             'configNumeroCuenta' => ['nullable', 'regex:/^\d{6,20}$/'],
@@ -174,6 +182,7 @@ class SitioController extends Component
             'configFacebook'  => 'nullable|url|max:255',
             'configInstagram' => 'nullable|url|max:255',
             'configWhatsapp'  => 'nullable|string|max:30',
+            'configMensajeWhatsapp' => 'nullable|string|max:300',
             'configHorarios'  => 'required|array',
             'configHorarios.*.abierto'  => 'required|boolean',
             'configHorarios.*.apertura' => 'nullable|date_format:H:i',
@@ -190,6 +199,7 @@ class SitioController extends Component
             'configNumeroCuenta.regex' => 'El número de cuenta solo lleva dígitos (entre 6 y 20).',
             'configFacebook.url'    => 'La URL de Facebook no es válida.',
             'configInstagram.url'   => 'La URL de Instagram no es válida.',
+            'configMensajeWhatsapp.max' => 'El mensaje de WhatsApp no debe pasar de 300 caracteres.',
             'configLogo.image'      => 'El logo debe ser una imagen.',
             'configLogo.max'        => 'El logo no debe exceder 2 MB.',
             'configHorarios.required' => 'Debe definir los horarios de atención.',
@@ -210,11 +220,13 @@ class SitioController extends Component
             $data = [
                 'nombre'        => $this->configNombre,
                 'direccion'     => $this->configDireccion  ?: null,
+                'ubicacion_url' => $this->configUbicacionUrl ?: null,
                 'correo'        => $this->configCorreo     ?: null,
                 'telefono'      => $this->configTelefono   ?: null,
                 'facebook_url'  => $this->configFacebook   ?: null,
                 'instagram_url' => $this->configInstagram  ?: null,
                 'whatsapp'      => $this->configWhatsapp   ?: null,
+                'mensaje_whatsapp' => trim($this->configMensajeWhatsapp) ?: null,
                 'banco'          => $this->configBanco        ?: null,
                 'titular_cuenta' => $this->configTitular      ?: null,
                 'numero_cuenta'  => $this->configNumeroCuenta ?: null,
@@ -228,6 +240,8 @@ class SitioController extends Component
                 SiteConfig::findOrFail($this->configId)->update($data);
                 $this->emit('sitio-success', 'Configuración actualizada correctamente.');
             } else {
+                // Si no hay ninguna activa, la nueva queda activa para que la tienda siempre tenga datos.
+                $data['activo'] = ! SiteConfig::where('activo', true)->exists();
                 SiteConfig::create($data);
                 $this->emit('sitio-success', 'Configuración creada correctamente.');
             }
@@ -242,11 +256,38 @@ class SitioController extends Component
     public function activateConfig(int $id): void
     {
         try {
-            SiteConfig::query()->update(['activo' => false]);
-            SiteConfig::findOrFail($id)->update(['activo' => true]);
+            $config = SiteConfig::findOrFail($id);
+
+            DB::transaction(function () use ($config) {
+                SiteConfig::query()->update(['activo' => false]);
+                $config->update(['activo' => true]);
+            });
+
             $this->emit('sitio-success', 'Configuración activada correctamente.');
         } catch (Throwable $e) {
             $this->emit('sitio-error', 'Error al activar: ' . $e->getMessage());
+        }
+    }
+
+    // Siempre debe quedar una activa: para cambiar de configuracion se usa Activar en la otra.
+    public function deactivateConfig(int $id): void
+    {
+        try {
+            $config = SiteConfig::findOrFail($id);
+
+            if (! $config->activo) {
+                return;
+            }
+
+            if (SiteConfig::where('activo', true)->count() <= 1) {
+                $this->emit('sitio-error', 'Debe quedar una configuración activa. Para cambiarla, presiona Activar en otra.');
+                return;
+            }
+
+            $config->update(['activo' => false]);
+            $this->emit('sitio-success', 'Configuración desactivada correctamente.');
+        } catch (Throwable $e) {
+            $this->emit('sitio-error', 'Error al desactivar: ' . $e->getMessage());
         }
     }
 
@@ -281,11 +322,13 @@ class SitioController extends Component
         $this->configId         = null;
         $this->configNombre     = '';
         $this->configDireccion  = '';
+        $this->configUbicacionUrl = '';
         $this->configCorreo     = '';
         $this->configTelefono   = '';
         $this->configFacebook   = '';
         $this->configInstagram  = '';
         $this->configWhatsapp   = '';
+        $this->configMensajeWhatsapp = '';
         $this->configBanco        = '';
         $this->configTitular      = '';
         $this->configNumeroCuenta = '';
@@ -446,7 +489,9 @@ class SitioController extends Component
         $alertas = SiteAlert::orderByDesc('created_at')
             ->paginate(10, ['*'], 'alertas_page');
 
-        return view('livewire.sitio.sitio-controller', compact('configs', 'alertas'))
+        $totalActivas = SiteConfig::where('activo', true)->count();
+
+        return view('livewire.sitio.sitio-controller', compact('configs', 'alertas', 'totalActivas'))
             ->extends('layouts.theme.app')
             ->section('content');
     }
