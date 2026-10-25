@@ -85,6 +85,16 @@
                                     <small class="text-muted d-block mt-1">El mandadito es un servicio externo: el cliente arregla su pago directo con él.</small>
                                 </div>
 
+                                @if($createTipoEntrega === 'mandadito')
+                                    <div class="form-group">
+                                        <label>Dirección de entrega</label>
+                                        <input type="text" wire:model.defer="createDireccionEntrega" class="form-control" maxlength="255" placeholder="Calle, número y colonia">
+                                        <input type="text" wire:model.defer="createReferenciasEntrega" class="form-control mt-1" maxlength="255" placeholder="Referencias (casa azul, portón negro)">
+                                        <input type="text" wire:model.defer="createUbicacionUrl" class="form-control mt-1" maxlength="500" placeholder="Link de Google Maps (opcional)">
+                                        <small class="text-muted d-block mt-1">Si lo dejas vacío se usa la dirección guardada del cliente.</small>
+                                    </div>
+                                @endif
+
                                 <div class="form-group">
                                     <label>Fecha de entrega</label>
                                     <input type="date" wire:model="createFechaEntrega" class="form-control">

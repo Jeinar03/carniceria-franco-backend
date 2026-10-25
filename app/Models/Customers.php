@@ -21,6 +21,8 @@ class Customers extends Authenticatable implements MustVerifyEmail
         'password',
         'telefono',
         'direccion',
+        'referencias',
+        'ubicacion_url',
         'ciudad',
         'estado',
         'codigo_postal',

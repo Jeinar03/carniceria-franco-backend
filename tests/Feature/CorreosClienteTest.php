@@ -101,6 +101,7 @@ class CorreosClienteTest extends TestCase
         Sanctum::actingAs($this->cliente, ['cliente']);
 
         $res = $this->postJson('/api/v1/ventas', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'transferencia',
             'productos' => [['product_id' => $this->producto()->id, 'cantidad' => 1]],
         ]);
@@ -114,6 +115,7 @@ class CorreosClienteTest extends TestCase
         Sanctum::actingAs($this->cliente, ['cliente']);
 
         $res = $this->postJson('/api/v1/mercadopago/create-preference', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'mercado_pago',
             'productos' => [['product_id' => $this->producto()->id, 'cantidad' => 1]],
         ]);

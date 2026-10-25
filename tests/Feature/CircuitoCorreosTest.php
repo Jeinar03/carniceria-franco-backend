@@ -60,6 +60,7 @@ class CircuitoCorreosTest extends TestCase
         $producto = Product::where('activo', true)->where('en_oferta', false)->firstOrFail();
 
         $res = $this->postJson('/api/v1/ventas', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'transferencia',
             'productos' => [['product_id' => $producto->id, 'cantidad' => 1]],
         ]);

@@ -54,6 +54,8 @@ class ApiClienteSeguridadTest extends TestCase
         return array_merge([
             'metodo_pago' => 'transferencia',
             'productos' => [['product_id' => $this->producto()->id, 'cantidad' => 2]],
+            'acepta_aviso_mandadito' => true,
+            'direccion_entrega' => 'Calle Prueba 1, Centro',
         ], $extra);
     }
 
@@ -65,6 +67,7 @@ class ApiClienteSeguridadTest extends TestCase
             'apellido' => 'Pillo',
             'correo' => 'listo@test.com',
             'password' => 'secreto123',
+            'telefono' => '7531234567',
             'tipo_cliente' => 'mayorista',
             'descuento_preferencial' => 100,
             'limite_credito' => 99999,

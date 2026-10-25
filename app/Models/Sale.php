@@ -34,6 +34,10 @@ class Sale extends Model
         'fecha_venta',
         'fecha_entrega',
         'tipo_entrega',
+        'direccion_entrega',
+        'referencias_entrega',
+        'ubicacion_url',
+        'aviso_mandadito_aceptado_at',
         'subtotal',
         'descuento',
         'impuestos',
@@ -65,6 +69,7 @@ class Sale extends Model
         'transferencia_subida_at' => 'datetime',
         'transferencia_validada_at' => 'datetime',
         'entregado_at' => 'datetime',
+        'aviso_mandadito_aceptado_at' => 'datetime',
     ];
 
     protected $attributes = [
@@ -113,6 +118,69 @@ class Sale extends Model
     public function esParaRecoger(): bool
     {
         return $this->tipo_entrega === self::ENTREGA_RECOGER;
+    }
+
+    // Datos de entrega del mandadito. Si el pedido no trae su propia direccion (ventas anteriores
+    // o capturadas en el panel sin ella) se usan los datos guardados del cliente.
+    private function usaDireccionDelPedido(): bool
+    {
+        return filled($this->direccion_entrega);
+    }
+
+    public function direccionDeEntrega(): ?string
+    {
+        return $this->usaDireccionDelPedido() ? $this->direccion_entrega : (filled($this->customer?->direccion) ? $this->customer->direccion : null);
+    }
+
+    public function referenciasDeEntrega(): ?string
+    {
+        $valor = $this->usaDireccionDelPedido() ? $this->referencias_entrega : $this->customer?->referencias;
+
+        return filled($valor) ? $valor : null;
+    }
+
+    public function ubicacionDeEntrega(): ?string
+    {
+        $valor = $this->usaDireccionDelPedido() ? $this->ubicacion_url : $this->customer?->ubicacion_url;
+
+        return filled($valor) ? $valor : null;
+    }
+
+    /** Link para abrir en Maps: el que dio el cliente o, si no hay, una busqueda con su direccion. */
+    public function enlaceMapaEntrega(): ?string
+    {
+        if ($link = $this->ubicacionDeEntrega()) {
+            return $link;
+        }
+
+        $direccion = $this->direccionDeEntrega();
+
+        return $direccion ? 'https://www.google.com/maps/search/?api=1&query=' . urlencode($direccion) : null;
+    }
+
+    /** Texto listo para pegar en WhatsApp y mandarselo al mandadito. */
+    public function textoParaMandadito(): string
+    {
+        $cliente = $this->customer;
+        $lineas = [
+            'Pedido ' . $this->folio,
+            'Cliente: ' . ($cliente ? trim($cliente->nombre . ' ' . $cliente->apellido) : 'Cliente General'),
+        ];
+
+        if ($cliente && filled($cliente->telefono)) {
+            $lineas[] = 'Teléfono: ' . $cliente->telefono;
+        }
+        if ($direccion = $this->direccionDeEntrega()) {
+            $lineas[] = 'Dirección: ' . $direccion;
+        }
+        if ($referencias = $this->referenciasDeEntrega()) {
+            $lineas[] = 'Referencias: ' . $referencias;
+        }
+        if ($enlace = $this->enlaceMapaEntrega()) {
+            $lineas[] = 'Mapa: ' . $enlace;
+        }
+
+        return implode("\n", $lineas);
     }
 
     // Scope para ventas completadas

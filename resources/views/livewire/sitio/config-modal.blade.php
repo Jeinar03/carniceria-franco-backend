@@ -85,6 +85,19 @@
                                        placeholder="Ej: Av. Siempre Viva 742, Springfield">
                             </div>
 
+                            <div class="col-md-12 form-group">
+                                <label class="cfg-label">Ubicación de la carnicería en Google Maps</label>
+                                <input type="text" class="form-control @error('configUbicacionUrl') is-invalid @enderror"
+                                       wire:model.lazy="configUbicacionUrl"
+                                       placeholder="https://maps.app.goo.gl/...">
+                                @error('configUbicacionUrl')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                                <small class="text-muted d-block mt-1">
+                                    La ven los clientes que eligen recoger su pedido. En Google Maps busca la carnicería, toca Compartir y Copiar link.
+                                </small>
+                            </div>
+
                             <div class="col-md-6 form-group">
                                 <label class="cfg-label">Correo electrónico</label>
                                 <input type="email" class="form-control @error('configCorreo') is-invalid @enderror"

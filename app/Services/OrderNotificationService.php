@@ -48,6 +48,7 @@ class OrderNotificationService
             $sitio = SiteConfig::activa();
             $direccion = $sitio ? trim((string) $sitio->direccion) : '';
             $horarios = $sitio ? $sitio->horariosParaMostrar() : [];
+            $mapa = $sitio ? $sitio->enlaceMapa() : null;
 
             return [
                 'subject' => 'Tu pedido está listo para recoger - Carnicería Franko',
@@ -58,7 +59,7 @@ class OrderNotificationService
                 'icon' => '',
                 'next_step' => 'Pasa a la carnicería y menciona tu folio al llegar.',
                 'estimated_time' => 'Tu pedido te espera; abajo encontrarás cómo llegar y los horarios.',
-                'punto_recoger' => ['direccion' => $direccion, 'horarios' => $horarios],
+                'punto_recoger' => ['direccion' => $direccion, 'horarios' => $horarios, 'mapa' => $mapa],
             ];
         }
 

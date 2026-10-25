@@ -110,6 +110,7 @@ class ApiOwnershipTest extends TestCase
         Sanctum::actingAs($a, ['cliente']);
 
         $res = $this->postJson('/api/v1/ventas', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'customer_id' => $b->id, // <- intento de spoofing
             'metodo_pago' => 'transferencia',
             'productos' => [
@@ -130,6 +131,7 @@ class ApiOwnershipTest extends TestCase
         Sanctum::actingAs($a, ['cliente']);
 
         $res = $this->postJson('/api/v1/ventas', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
             'metodo_pago' => 'transferencia',
             'productos' => [
                 ['product_id' => $producto->id, 'cantidad' => 2],
