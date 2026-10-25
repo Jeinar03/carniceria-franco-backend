@@ -37,7 +37,7 @@
                     <div class="col-xl-3 col-md-6 mb-2">
                         <div class="sales-summary-card">
                             <small class="text-muted d-block">Fecha</small>
-                            <strong>{{ $sale->fecha_venta->format('d/m/Y H:i:s') }}</strong>
+                            <strong>{{ \App\Support\HoraLocal::formato($sale->fecha_venta, 'd/m/Y H:i:s') }}</strong>
                         </div>
                     </div>
                     <div class="col-xl-3 col-md-6 mb-2">
@@ -153,7 +153,7 @@
                                         @endif
                                     </div>
                                     @if($sale->aviso_mandadito_aceptado_at)
-                                        <div><small class="text-muted">Aviso del mandadito</small><strong class="d-block">Aceptado el {{ $sale->aviso_mandadito_aceptado_at->format('d/m/Y H:i') }}</strong></div>
+                                        <div><small class="text-muted">Aviso del mandadito</small><strong class="d-block">Aceptado el {{ \App\Support\HoraLocal::formato($sale->aviso_mandadito_aceptado_at) }}</strong></div>
                                     @endif
                                 @endif
                             </div>
