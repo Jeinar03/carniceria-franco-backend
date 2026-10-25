@@ -89,7 +89,7 @@
                                                     <td>
                                                         <div class="font-weight-600">{{ $detail->producto_nombre }}</div>
                                                         @if($detail->product && $detail->product->imagen)
-                                                            <img src="{{ asset($detail->product->imagen) }}"
+                                                            <img src="{{ $detail->product->imagen_url }}"
                                                                  alt="{{ $detail->producto_nombre }}"
                                                                  class="rounded mt-1"
                                                                  style="width: 38px; height: 38px; object-fit: cover;">
