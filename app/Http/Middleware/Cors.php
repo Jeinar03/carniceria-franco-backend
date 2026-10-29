@@ -12,7 +12,7 @@ class Cors
      *
      * El origen permitido sale de config/cors.php (que lee FRONTEND_URL del .env).
      * Si no hay lista (entorno local), se permite cualquier origen ('*').
-     * En producción: FRONTEND_URL=https://tienda.carniceriafrancoadmin.shop
+     * En producción: FRONTEND_URL=https://carniceriafranko.com
      */
     public function handle($request, Closure $next)
     {
