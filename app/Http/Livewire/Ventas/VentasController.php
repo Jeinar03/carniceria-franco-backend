@@ -140,12 +140,15 @@ class VentasController extends Component
         }, $saleId);
     }
 
-    public function rechazarCancelacion($saleId)
+    /** Rechaza la solicitud; la respuesta es opcional y se incluye en el correo al cliente. */
+    public function rechazarCancelacion($saleId, $respuesta = null)
     {
         $this->requirePanelRole('Admin');
 
-        $this->ejecutarCancelacion(function (CancelacionVentaService $cancelaciones) use ($saleId) {
-            $cancelaciones->rechazarSolicitud((int) $saleId);
+        $respuesta = is_string($respuesta) ? mb_substr(trim($respuesta), 0, 255) : null;
+
+        $this->ejecutarCancelacion(function (CancelacionVentaService $cancelaciones) use ($saleId, $respuesta) {
+            $cancelaciones->rechazarSolicitud((int) $saleId, $respuesta ?: null);
 
             return 'Solicitud rechazada; el pedido sigue su curso';
         }, $saleId);

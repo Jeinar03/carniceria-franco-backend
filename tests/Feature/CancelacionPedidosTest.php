@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\MercadoPagoController;
 use App\Http\Livewire\Despachos\DespachosController;
 use App\Http\Livewire\Ventas\VentasController;
+use App\Mail\OrderStatusMail;
 use App\Models\Customers;
 use App\Models\Product;
 use App\Models\Sale;
@@ -272,6 +273,58 @@ class CancelacionPedidosTest extends TestCase
         $this->assertSame('completada', $sale->estatus);
         $this->assertNull($sale->cancelacion_solicitada_at);
         $this->assertTrue(app(DespachosController::class)->canManageDispatch($sale));
+    }
+
+    private function renderCorreo(OrderStatusMail $mail): string
+    {
+        return view('emails.order-status', [
+            'sale' => $mail->sale,
+            'config' => $mail->statusConfig,
+            'order' => $mail->orderSummary,
+            'customer' => $mail->sale->customer,
+            'datosBancarios' => null,
+        ])->render();
+    }
+
+    public function test_al_rechazar_la_respuesta_del_admin_llega_en_el_correo_al_cliente(): void
+    {
+        $cliente = $this->cliente();
+        $sale = $this->venta($cliente, ['estatus' => 'completada', 'mercadopago_payment_id' => '56', 'mercadopago_status' => 'approved', 'cancelacion_solicitada_at' => now(), 'cancelacion_motivo' => 'Ya no lo quiero'], true);
+
+        Livewire::actingAs($this->admin())->test(VentasController::class)
+            ->call('rechazarCancelacion', $sale->id, '  Tu pedido ya salió con el mandadito.  ')
+            ->assertEmitted('sale-cancelled');
+
+        Mail::assertSent(OrderStatusMail::class, function ($mail) {
+            return ($mail->statusConfig['respuesta_admin'] ?? null) === 'Tu pedido ya salió con el mandadito.'
+                && str_contains($this->renderCorreo($mail), 'Tu pedido ya salió con el mandadito.');
+        });
+    }
+
+    public function test_al_rechazar_sin_respuesta_el_correo_no_lleva_el_bloque_de_mensaje(): void
+    {
+        $cliente = $this->cliente();
+        $sale = $this->venta($cliente, ['estatus' => 'completada', 'mercadopago_payment_id' => '57', 'mercadopago_status' => 'approved', 'cancelacion_solicitada_at' => now()], true);
+
+        Livewire::actingAs($this->admin())->test(VentasController::class)
+            ->call('rechazarCancelacion', $sale->id, '')
+            ->assertEmitted('sale-cancelled');
+
+        Mail::assertSent(OrderStatusMail::class, function ($mail) {
+            return !isset($mail->statusConfig['respuesta_admin'])
+                && !str_contains($this->renderCorreo($mail), 'Mensaje de la carnicería');
+        });
+    }
+
+    public function test_el_detalle_muestra_el_motivo_que_escribio_el_cliente(): void
+    {
+        $cliente = $this->cliente();
+        $sale = $this->venta($cliente, ['estatus' => 'completada', 'mercadopago_payment_id' => '58', 'mercadopago_status' => 'approved', 'cancelacion_solicitada_at' => now(), 'cancelacion_motivo' => 'Soy bien indeciso'], true);
+
+        Livewire::actingAs($this->admin())->test(VentasController::class)
+            ->call('viewDetail', $sale->id)
+            ->assertSee('El cliente pidió cancelar')
+            ->assertSee('Soy bien indeciso');
     }
 
     public function test_cancelar_una_transferencia_con_comprobante_queda_marcada_para_devolver_a_mano(): void
