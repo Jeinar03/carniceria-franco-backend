@@ -138,6 +138,20 @@
                             <div class="card-body py-3 px-3 sales-info-grid">
                                 <div><small class="text-muted">Metodo pago</small><strong class="d-block">{{ ucfirst($sale->metodo_pago) }}</strong></div>
                                 <div><small class="text-muted">Notas</small><strong class="d-block">{{ $sale->notas ?? 'Sin notas' }}</strong></div>
+                                @if($sale->tieneCancelacionSolicitada())
+                                    <div class="alert alert-info mb-0" style="grid-column: 1 / -1;">
+                                        <strong>El cliente pidió cancelar</strong> ({{ \App\Support\HoraLocal::formato($sale->cancelacion_solicitada_at) }})<br>
+                                        Motivo: {{ $sale->cancelacion_motivo ?: 'No escribió motivo' }}
+                                    </div>
+                                @elseif($sale->estaCancelada() && $sale->cancelado_at)
+                                    <div style="grid-column: 1 / -1;">
+                                        <small class="text-muted">Cancelación</small>
+                                        <strong class="d-block">Cancelada por {{ ['cliente' => 'el cliente', 'admin' => 'un administrador', 'sistema' => 'el sistema (venció sin pago)'][$sale->cancelado_por_tipo] ?? 'el sistema' }} el {{ \App\Support\HoraLocal::formato($sale->cancelado_at) }}</strong>
+                                        @if($sale->cancelacion_motivo)
+                                            <small class="d-block text-muted">Motivo: {{ $sale->cancelacion_motivo }}</small>
+                                        @endif
+                                    </div>
+                                @endif
                                 @if($sale->esParaRecoger())
                                     <div><small class="text-muted">Entrega</small><strong class="d-block">Recoger en la carnicería</strong></div>
                                 @else

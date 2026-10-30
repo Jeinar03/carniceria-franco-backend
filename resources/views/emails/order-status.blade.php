@@ -327,6 +327,13 @@
                 <div class="total-label">Total de la Compra</div>
             </div>
 
+            @if(!empty($config['respuesta_admin']))
+            <div class="next-step-card">
+                <div class="next-step-title">Mensaje de la carnicería:</div>
+                <div class="next-step-content">{{ $config['respuesta_admin'] }}</div>
+            </div>
+            @endif
+
             <!-- Next Step -->
             <div class="next-step-card">
                 <div class="next-step-title">Próximo Paso:</div>

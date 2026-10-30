@@ -254,9 +254,9 @@ class OrderNotificationService
     }
 
     /** Correo cuando el Admin rechaza la solicitud. Generico: no lleva el motivo del empleado. */
-    public static function sendCancellationRejectedNotification(Sale $sale)
+    public static function sendCancellationRejectedNotification(Sale $sale, ?string $respuesta = null)
     {
-        return self::enviarCorreo($sale, 'cancelacion_rechazada');
+        return self::enviarCorreo($sale, 'cancelacion_rechazada', ['respuesta_admin' => $respuesta]);
     }
 
     /** Correo cuando se devolvio el pago y se cancelo el pedido. */
@@ -265,7 +265,7 @@ class OrderNotificationService
         return self::enviarCorreo($sale, 'reembolso_hecho');
     }
 
-    private static function enviarCorreo(Sale $sale, string $clave): bool
+    private static function enviarCorreo(Sale $sale, string $clave, array $extra = []): bool
     {
         // Sin cliente (venta de mostrador) o sin correo no hay a quien avisar.
         if (!$sale->customer || !$sale->customer->correo) {
@@ -278,6 +278,8 @@ class OrderNotificationService
             if (!$statusConfig) {
                 return false;
             }
+
+            $statusConfig = array_merge($statusConfig, array_filter($extra));
 
             Mail::to($sale->customer->correo)->send(
                 new OrderStatusMail($sale, $statusConfig)
