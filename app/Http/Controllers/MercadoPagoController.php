@@ -152,7 +152,12 @@ class MercadoPagoController extends Controller
         // La preferencia y la venta pendiente siempre son del cliente autenticado.
         $request->merge(['customer_id' => $request->user()->id]);
 
-        Log::info('📦 Datos recibidos (normalizados):', $request->all());
+        // Sin datos personales en el log: solo quien compra y cuantos renglones trae.
+        Log::info('📦 Datos recibidos (normalizados):', [
+            'customer_id' => $request->input('customer_id'),
+            'productos'   => is_array($request->input('productos')) ? count($request->input('productos')) : 0,
+            'campos'      => array_keys($request->all()),
+        ]);
 
         $validator = Validator::make($request->all(), [
             'customer_id'             => 'required|exists:customers,id',
@@ -179,11 +184,7 @@ class MercadoPagoController extends Controller
 
         try {
             $customer = Customers::findOrFail($request->customer_id);
-            Log::info('👤 Cliente encontrado:', [
-                'id'     => $customer->id,
-                'nombre' => $customer->nombre,
-                'correo' => $customer->correo,
-            ]);
+            Log::info('👤 Cliente encontrado:', ['id' => $customer->id]);
 
             $items    = [];
             $montos   = []; // total de cada renglón, en el mismo orden que $items
@@ -378,13 +379,12 @@ class MercadoPagoController extends Controller
                 Log::info("⚠️ Payer email OMITIDO (Sandbox activo)");
             } else {
                 $payer->email = $customer->correo;
-                Log::info("✉️ Payer email CONFIGURADO: {$customer->correo}");
+                Log::info('✉️ Payer email CONFIGURADO');
             }
 
-            Log::info("👤 Payer configurado:", [
-                'name'        => $payer->name,
-                'surname'     => $payer->surname,
-                'email'       => $sandbox ? '🚫 OMITIDO (sandbox)' : $customer->correo,
+            Log::info('👤 Payer configurado:', [
+                'customer_id' => $customer->id,
+                'email'       => $sandbox ? 'omitido (sandbox)' : 'configurado',
                 'environment' => config('app.env'),
             ]);
 
@@ -502,7 +502,13 @@ class MercadoPagoController extends Controller
 
     public function webhook(Request $request)
     {
-        Log::info('═══ WEBHOOK MERCADOPAGO ═══', $request->all());
+        // Solo lo necesario para depurar; el cuerpo completo puede traer datos del comprador.
+        Log::info('═══ WEBHOOK MERCADOPAGO ═══', [
+            'tipo'    => $request->input('type', $request->input('topic')),
+            'accion'  => $request->input('action'),
+            'id'      => $request->input('data.id', $request->input('id')),
+            'live'    => $request->input('live_mode'),
+        ]);
 
         if (! $this->configured) {
             return response()->json(['error' => 'Mercado Pago no configurado'], 503);
