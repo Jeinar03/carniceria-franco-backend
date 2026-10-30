@@ -4,7 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Support\HoraLocal;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 
 class Sale extends Model
 {
@@ -343,6 +345,35 @@ class Sale extends Model
         return $fecha . '-' . str_pad($consecutivo, 4, '0', STR_PAD_LEFT);
     }
 
+    /** El folio lo genero el sistema (si lo escribio quien creo la venta, no se cambia). */
+    protected bool $folioAutomatico = false;
+
+    /**
+     * Dos ventas simultaneas pueden calcular el mismo folio. El indice unico de folio rechaza la segunda
+     * y aqui se vuelve a calcular (ya con la primera guardada) en vez de dejar un folio repetido.
+     */
+    protected function performInsert(Builder $query)
+    {
+        $intentos = 0;
+
+        while (true) {
+            try {
+                return parent::performInsert($query);
+            } catch (QueryException $e) {
+                if (!$this->folioAutomatico || !$this->esFolioDuplicado($e) || ++$intentos >= 5) {
+                    throw $e;
+                }
+
+                $this->folio = static::generarFolio();
+            }
+        }
+    }
+
+    private function esFolioDuplicado(QueryException $e): bool
+    {
+        return str_contains($e->getMessage(), 'folio') && in_array((string) $e->getCode(), ['23000', '19'], true);
+    }
+
     // Boot method para generar folio automáticamente
     protected static function boot()
     {
@@ -350,7 +381,8 @@ class Sale extends Model
 
         static::creating(function ($sale) {
             if (!$sale->folio) {
-                $sale->folio = self::generarFolio();
+                $sale->folio = static::generarFolio();
+                $sale->folioAutomatico = true;
             }
         });
 

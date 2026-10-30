@@ -150,6 +150,34 @@ class MercadoPagoFlowTest extends TestCase
         $this->assertSame(0, Sale::count());
     }
 
+    public function test_el_log_de_la_preferencia_y_del_webhook_no_guarda_datos_personales(): void
+    {
+        $archivo = tempnam(sys_get_temp_dir(), 'mplog');
+        config()->set('logging.default', 'single');
+        config()->set('logging.channels.single.path', $archivo);
+        app('log')->forgetChannel('single');
+        app('log')->forgetChannel('stack');
+
+        $cliente = $this->cliente('secreto@test.com');
+        $cliente->update(['nombre' => 'Nombre', 'apellido' => 'Secretisimo', 'telefono' => '5512345678']);
+        $venta = $this->crearVentaPendiente($cliente);
+        $this->pago(901, $venta);
+
+        $this->postJson('/api/v1/mercadopago/webhook', [
+            'type' => 'payment',
+            'data' => ['id' => '901'],
+            'payer' => ['email' => 'comprador@secreto.test', 'first_name' => 'Comprador'],
+        ])->assertSuccessful();
+
+        $log = (string) file_get_contents($archivo);
+        @unlink($archivo);
+
+        $this->assertStringContainsString('WEBHOOK MERCADOPAGO', $log);
+        foreach (['secreto@test.com', 'comprador@secreto.test', 'Secretisimo', '5512345678'] as $dato) {
+            $this->assertStringNotContainsString($dato, $log, "El log guardó un dato personal: {$dato}");
+        }
+    }
+
     public function test_la_preferencia_regresa_a_la_tienda_y_registra_el_webhook_aun_con_sandbox(): void
     {
         config()->set('mercadopago.sandbox', true);
