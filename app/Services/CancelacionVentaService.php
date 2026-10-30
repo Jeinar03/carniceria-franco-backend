@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Customers;
 use App\Models\Product;
 use App\Models\Sale;
 use Illuminate\Support\Facades\DB;
@@ -287,15 +286,6 @@ class CancelacionVentaService
             }
         }
 
-        if ($this->estadisticasSumadas($sale)) {
-            $customer = Customers::find($sale->customer_id);
-            if ($customer) {
-                $customer->total_compras = max(0, (float) $customer->total_compras - (float) $sale->total);
-                $customer->numero_compras = max(0, (int) $customer->numero_compras - 1);
-                $customer->save();
-            }
-        }
-
         $sale->estatus = Sale::ESTATUS_CANCELADA;
         $sale->cancelado_at = now();
         $sale->cancelado_por_tipo = $porTipo;
@@ -303,14 +293,5 @@ class CancelacionVentaService
         $sale->save();
 
         Log::info('Venta cancelada', ['sale_id' => $sale->id, 'por' => $porTipo, 'usuario_id' => $userId]);
-    }
-
-    /**
-     * Las estadisticas del cliente se suman al crear la venta (transferencia, mostrador) o al aprobarse
-     * el pago (Mercado Pago). Un Mercado Pago sin pagar nunca las sumo.
-     */
-    private function estadisticasSumadas(Sale $sale): bool
-    {
-        return $sale->metodo_pago !== 'mercado_pago' || $sale->estatus !== Sale::ESTATUS_PENDIENTE;
     }
 }

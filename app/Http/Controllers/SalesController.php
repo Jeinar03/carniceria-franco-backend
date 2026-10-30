@@ -212,12 +212,7 @@ class SalesController extends Controller
                 $this->inventory->addSaleExit($product, $saleDetail);
             }
 
-            // Actualizar estadísticas del cliente
-            $customer = Customers::find($request->customer_id);
-            $customer->total_compras = ($customer->total_compras ?? 0) + $total;
-            $customer->numero_compras = ($customer->numero_compras ?? 0) + 1;
-            $customer->fecha_ultima_compra = now();
-            $customer->save();
+            // Las estadísticas del cliente las recalcula el modelo Sale al guardar la venta (solo cuentan las pagadas).
 
             DB::commit();
 

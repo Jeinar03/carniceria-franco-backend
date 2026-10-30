@@ -353,5 +353,22 @@ class Sale extends Model
                 $sale->folio = self::generarFolio();
             }
         });
+
+        // Total gastado y Compras realizadas del cliente salen siempre de sus ventas pagadas:
+        // se recalculan cuando una venta se crea o cambia de estatus, total o cliente.
+        static::saved(function (Sale $sale) {
+            if (!$sale->wasRecentlyCreated && !$sale->wasChanged(['estatus', 'total', 'customer_id'])) {
+                return;
+            }
+
+            $clientes = [$sale->customer_id];
+            if ($sale->wasChanged('customer_id')) {
+                $clientes[] = $sale->getOriginal('customer_id');
+            }
+
+            foreach (array_unique(array_filter($clientes)) as $clienteId) {
+                Customers::find($clienteId)?->recalcularEstadisticas();
+            }
+        });
     }
 }
