@@ -125,6 +125,7 @@ Route::group(['middleware' => 'cors'], function () {
                 Route::post('/{saleId}/evidencia-transferencia', [SalesController::class, 'uploadTransferEvidence'])->name('api.ventas.transferencia.evidencia');
                 Route::get('/{saleId}/evidencia-transferencia',  [SalesController::class, 'showTransferEvidence'])->name('api.ventas.transferencia.evidencia.show');
                 Route::put('/{saleId}/cancelar',                 [SalesController::class, 'cancelPurchase'])->name('api.ventas.cancelar');
+                Route::post('/{saleId}/solicitar-cancelacion',   [SalesController::class, 'solicitarCancelacion'])->name('api.ventas.cancelacion.solicitar');
             });
 
             // Encuestas de indicadores por pedido

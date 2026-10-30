@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Sale;
 use App\Support\DatosEntrega;
+use App\Support\HoraLocal;
 use App\Models\SaleDetail;
 use App\Models\Product;
 use App\Models\Customers;
 use App\Models\SiteConfig;
+use App\Services\CancelacionVentaService;
 use App\Services\OrderNotificationService;
 use App\Services\InventoryService;
 use App\Services\PricingService;
@@ -23,10 +25,13 @@ class SalesController extends Controller
     private $inventory;
     private $pricing;
 
-    public function __construct(InventoryService $inventory, PricingService $pricing)
+    private $cancelaciones;
+
+    public function __construct(InventoryService $inventory, PricingService $pricing, CancelacionVentaService $cancelaciones)
     {
         $this->inventory = $inventory;
         $this->pricing = $pricing;
+        $this->cancelaciones = $cancelaciones;
     }
 
     /**
@@ -83,7 +88,7 @@ class SalesController extends Controller
             'productos.*.cantidad' => 'required|numeric|min:0.01',
             'productos.*.monto_pesos' => 'nullable|numeric|min:0', // Para venta por monto
             'notas' => 'nullable|string',
-            'fecha_entrega' => 'nullable|date|after_or_equal:today', // Pedido para un día posterior (opcional)
+            'fecha_entrega' => 'nullable|date|after_or_equal:' . HoraLocal::hoy(), // Pedido para un día posterior (opcional)
         ] + DatosEntrega::reglas($request->input('tipo_entrega')), DatosEntrega::mensajes());
 
         if ($validator->fails()) {
@@ -242,10 +247,11 @@ class SalesController extends Controller
             ], 409);
         } catch (\Exception $e) {
             DB::rollBack();
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al procesar la compra: ' . $e->getMessage(),
+                'message' => 'Error al procesar la compra. Intenta de nuevo en un momento.',
                 'data' => null
             ], 500);
         }
@@ -277,6 +283,10 @@ class SalesController extends Controller
                 ->orderBy('fecha_venta', 'desc')
                 ->paginate(15);
 
+            $purchases->getCollection()->each(function (Sale $sale) {
+                $sale->setAttribute('opciones_cancelacion', $this->cancelaciones->opcionesParaCliente($sale));
+            });
+
             return response()->json([
                 'success' => true,
                 'status' => 200,
@@ -288,10 +298,11 @@ class SalesController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al obtener historial: ' . $e->getMessage(),
+                'message' => 'Error al obtener historial. Intenta de nuevo en un momento.',
                 'data' => null
             ], 500);
         }
@@ -319,6 +330,8 @@ class SalesController extends Controller
                 return $this->noAutorizado();
             }
 
+            $sale->setAttribute('opciones_cancelacion', $this->cancelaciones->opcionesParaCliente($sale));
+
             return response()->json([
                 'success' => true,
                 'status' => 200,
@@ -327,10 +340,11 @@ class SalesController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al obtener detalle: ' . $e->getMessage(),
+                'message' => 'Error al obtener detalle. Intenta de nuevo en un momento.',
                 'data' => null
             ], 500);
         }
@@ -383,10 +397,11 @@ class SalesController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al obtener estadísticas: ' . $e->getMessage(),
+                'message' => 'Error al obtener estadísticas. Intenta de nuevo en un momento.',
                 'data' => null
             ], 500);
         }
@@ -416,86 +431,88 @@ class SalesController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al obtener compras recientes: ' . $e->getMessage(),
+                'message' => 'Error al obtener compras recientes. Intenta de nuevo en un momento.',
                 'data' => null
             ], 500);
         }
     }
 
     /**
-     * Cancelar una compra
+     * Cancelar una compra sin pagar (Mercado Pago pendiente o transferencia sin comprobante).
+     * Un pedido ya pagado o con comprobante en revision se cancela con solicitarCancelacion.
      */
     public function cancelPurchase(Request $request, $saleId)
     {
-        DB::beginTransaction();
+        $sale = Sale::find($saleId);
+
+        if (!$sale) {
+            return $this->respuestaCancelacion(false, 404, 'Compra no encontrada');
+        }
+
+        if ($this->clienteNoEsDueno($request, $sale->customer_id)) {
+            return $this->noAutorizado();
+        }
 
         try {
-            $sale = Sale::with('details')->lockForUpdate()->find($saleId);
+            $sale = $this->cancelaciones->cancelarPorCliente($sale->id);
 
-            if (!$sale) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'status' => 404,
-                    'message' => 'Compra no encontrada',
-                    'data' => null
-                ], 404);
-            }
+            return $this->respuestaCancelacion(true, 200, 'Compra cancelada exitosamente', $sale);
+        } catch (\RuntimeException $e) {
+            return $this->respuestaCancelacion(false, 422, $e->getMessage());
+        } catch (\Throwable $e) {
+            report($e);
 
-            if ($this->clienteNoEsDueno($request, $sale->customer_id)) {
-                DB::rollBack();
-                return $this->noAutorizado();
-            }
-
-            if ($sale->estatus == 'cancelada') {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'status' => 400,
-                    'message' => 'La compra ya está cancelada',
-                    'data' => null
-                ], 400);
-            }
-
-            // Reintegrar existencias mediante movimientos de inventario.
-            foreach ($sale->details as $detail) {
-                $product = Product::find($detail->product_id);
-                if ($product) {
-                    $this->inventory->restoreCancelledSale($product, $detail);
-                }
-            }
-
-            // Actualizar estadísticas del cliente
-            $customer = Customers::find($sale->customer_id);
-            $customer->total_compras -= $sale->total;
-            $customer->numero_compras -= 1;
-            $customer->save();
-
-            // Cambiar estatus de la venta
-            $sale->estatus = 'cancelada';
-            $sale->save();
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'status' => 200,
-                'message' => 'Compra cancelada exitosamente',
-                'data' => $sale
-            ], 200);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'status' => 500,
-                'message' => 'Error al cancelar compra: ' . $e->getMessage(),
-                'data' => null
-            ], 500);
+            return $this->respuestaCancelacion(false, 500, 'No se pudo cancelar la compra. Intenta de nuevo.');
         }
+    }
+
+    /**
+     * El cliente pide cancelar un pedido ya pagado o con comprobante en revision.
+     * Un Admin la aprueba (con devolucion si fue Mercado Pago) o la rechaza desde el panel.
+     */
+    public function solicitarCancelacion(Request $request, $saleId)
+    {
+        $request->validate(['motivo' => 'nullable|string|max:255']);
+
+        $sale = Sale::find($saleId);
+
+        if (!$sale) {
+            return $this->respuestaCancelacion(false, 404, 'Compra no encontrada');
+        }
+
+        if ($this->clienteNoEsDueno($request, $sale->customer_id)) {
+            return $this->noAutorizado();
+        }
+
+        try {
+            $sale = $this->cancelaciones->solicitar($sale->id, $request->input('motivo'));
+
+            return $this->respuestaCancelacion(true, 200, 'Recibimos tu solicitud de cancelación', $sale);
+        } catch (\RuntimeException $e) {
+            return $this->respuestaCancelacion(false, 422, $e->getMessage());
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $this->respuestaCancelacion(false, 500, 'No se pudo enviar la solicitud. Intenta de nuevo.');
+        }
+    }
+
+    private function respuestaCancelacion(bool $ok, int $status, string $mensaje, ?Sale $sale = null)
+    {
+        if ($sale) {
+            $sale->setAttribute('opciones_cancelacion', $this->cancelaciones->opcionesParaCliente($sale));
+        }
+
+        return response()->json([
+            'success' => $ok,
+            'status' => $status,
+            'message' => $mensaje,
+            'data' => $sale,
+        ], $status);
     }
 
     /**
@@ -748,10 +765,11 @@ class SalesController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al generar recomendaciones: ' . $e->getMessage(),
+                'message' => 'Error al generar recomendaciones. Intenta de nuevo en un momento.',
                 'data' => null
             ], 500);
         }
@@ -809,6 +827,24 @@ class SalesController extends Controller
                 ], 400);
             }
 
+            if ($sale->transferencia_estado === 'aprobada') {
+                return response()->json([
+                    'success' => false,
+                    'status' => 400,
+                    'message' => 'Tu transferencia ya fue validada: no hace falta subir otro comprobante',
+                    'data' => null
+                ], 400);
+            }
+
+            if ($sale->tieneCancelacionSolicitada()) {
+                return response()->json([
+                    'success' => false,
+                    'status' => 400,
+                    'message' => 'Pediste cancelar este pedido: no se pueden subir comprobantes mientras se revisa',
+                    'data' => null
+                ], 400);
+            }
+
             if ($sale->transferencia_evidencia_path) {
                 Storage::disk('public')->delete($sale->transferencia_evidencia_path);
             }
@@ -833,10 +869,11 @@ class SalesController extends Controller
                 ]
             ], 200);
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al subir evidencia: ' . $e->getMessage(),
+                'message' => 'Error al subir evidencia. Intenta de nuevo en un momento.',
                 'data' => null
             ], 500);
         }
@@ -902,10 +939,11 @@ class SalesController extends Controller
                 'X-Frame-Options' => 'SAMEORIGIN',
             ]);
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al obtener evidencia: ' . $e->getMessage(),
+                'message' => 'Error al obtener evidencia. Intenta de nuevo en un momento.',
                 'data' => null
             ], 500);
         }

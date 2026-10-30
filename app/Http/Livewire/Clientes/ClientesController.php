@@ -137,7 +137,9 @@ class ClientesController extends Component
 
         try {
             $payload = $this->customerPayload();
-            $payload['password'] = Hash::make('defaultpassword');
+            // Contrasena aleatoria que nadie conoce: el cliente entra con "Olvide mi contrasena".
+            // Antes era una contrasena fija, y cualquiera podia entrar a las cuentas creadas desde el panel.
+            $payload['password'] = Hash::make(Str::random(40));
 
             Customers::create($payload);
 
@@ -163,6 +165,12 @@ class ClientesController extends Component
 
             $user->update($payload);
 
+            // Suspender o inactivar cierra de inmediato las sesiones abiertas de la tienda; cambiar la
+            // contrasena tambien, porque el token anterior era de quien la conocia.
+            if ($user->estatus !== 'activo' || ! empty($this->password)) {
+                $user->tokens()->delete();
+            }
+
             $this->resetUI();
             $this->emit('global-msg', 'Cliente actualizado');
             $this->emit('user-updated', 'Cliente actualizado');
@@ -184,6 +192,7 @@ class ClientesController extends Component
 
             if ($hasSales) {
                 $user->update(['estatus' => 'inactivo']);
+                $user->tokens()->delete();
                 $this->emit('user-deleted', 'Cliente inactivado (tiene ventas relacionadas)');
             } else {
                 $user->delete();

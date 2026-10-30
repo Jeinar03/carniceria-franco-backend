@@ -90,7 +90,7 @@
                                             <i class="fas fa-copy"></i> Copiar datos para el mandadito
                                         </button>
                                         @if($sale->aviso_mandadito_aceptado_at)
-                                            <small class="text-muted ml-2">El cliente aceptó el aviso del costo del mandadito el {{ $sale->aviso_mandadito_aceptado_at->format('d/m/Y H:i') }}</small>
+                                            <small class="text-muted ml-2">El cliente aceptó el aviso del costo del mandadito el {{ \App\Support\HoraLocal::formato($sale->aviso_mandadito_aceptado_at) }}</small>
                                         @endif
                                     </div>
                                 @endunless

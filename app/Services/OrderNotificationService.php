@@ -139,6 +139,46 @@ class OrderNotificationService
                 'next_step' => 'Puedes subir otro comprobante desde "Mis compras" en la tienda o escribirnos por WhatsApp.',
                 'estimated_time' => 'Si ya pagaste y crees que es un error, escríbenos y lo revisamos.'
             ],
+            'cancelada' => [
+                'subject' => 'Tu pedido fue cancelado - Carnicería Franko',
+                'title' => 'Tu pedido fue cancelado',
+                'status_display' => 'Pedido cancelado',
+                'message' => 'Tu pedido quedó cancelado. Si ya habías pagado, te avisaremos por separado cuando se haga tu devolución.',
+                'color' => '#dc3545',
+                'icon' => '',
+                'next_step' => 'Cuando quieras puedes hacer un pedido nuevo desde la tienda.',
+                'estimated_time' => 'Si tienes dudas, escríbenos por WhatsApp.'
+            ],
+            'cancelacion_solicitada' => [
+                'subject' => 'Recibimos tu solicitud de cancelación - Carnicería Franko',
+                'title' => 'Recibimos tu solicitud de cancelación',
+                'status_display' => 'Cancelación solicitada',
+                'message' => 'Recibimos tu solicitud para cancelar el pedido. Lo revisaremos y te avisaremos por correo. Mientras tanto no lo prepararemos.',
+                'color' => '#ffc107',
+                'icon' => '',
+                'next_step' => 'Te avisaremos cuando la solicitud sea revisada.',
+                'estimated_time' => 'La revisión se hace en horario de atención.'
+            ],
+            'cancelacion_rechazada' => [
+                'subject' => 'No pudimos cancelar tu pedido - Carnicería Franko',
+                'title' => 'No pudimos cancelar tu pedido',
+                'status_display' => 'Cancelación no aprobada',
+                'message' => 'No fue posible aprobar la cancelación de tu pedido, así que sigue su curso normal.',
+                'color' => '#dc3545',
+                'icon' => '',
+                'next_step' => 'Si necesitas ayuda, escríbenos por WhatsApp.',
+                'estimated_time' => 'Te seguiremos avisando de cada paso de tu pedido.'
+            ],
+            'reembolso_hecho' => [
+                'subject' => 'Te devolvimos tu pago - Carnicería Franko',
+                'title' => 'Te devolvimos tu pago',
+                'status_display' => 'Pago devuelto',
+                'message' => 'Cancelamos tu pedido y se devolvió tu pago completo. Dependiendo de tu banco, puede tardar unos días en reflejarse en tu cuenta.',
+                'color' => '#28a745',
+                'icon' => '',
+                'next_step' => 'Cuando quieras puedes hacer un pedido nuevo desde la tienda.',
+                'estimated_time' => 'Si pasan varios días y no lo ves, escríbenos por WhatsApp.'
+            ],
             'completada' => [
                 'subject' => 'Confirmación de compra - Carnicería Franko',
                 'title' => 'Compra realizada exitosamente',
@@ -199,6 +239,30 @@ class OrderNotificationService
     public static function sendTransferRejectedNotification(Sale $sale)
     {
         return self::enviarCorreo($sale, 'transferencia_rechazada');
+    }
+
+    /** Correo cuando se cancela el pedido (sin pago, o con devolucion pendiente). */
+    public static function sendCancelledNotification(Sale $sale)
+    {
+        return self::enviarCorreo($sale, 'cancelada');
+    }
+
+    /** Correo cuando el cliente solicita cancelar un pedido ya pagado. */
+    public static function sendCancellationRequestedNotification(Sale $sale)
+    {
+        return self::enviarCorreo($sale, 'cancelacion_solicitada');
+    }
+
+    /** Correo cuando el Admin rechaza la solicitud. Generico: no lleva el motivo del empleado. */
+    public static function sendCancellationRejectedNotification(Sale $sale)
+    {
+        return self::enviarCorreo($sale, 'cancelacion_rechazada');
+    }
+
+    /** Correo cuando se devolvio el pago y se cancelo el pedido. */
+    public static function sendRefundDoneNotification(Sale $sale)
+    {
+        return self::enviarCorreo($sale, 'reembolso_hecho');
     }
 
     private static function enviarCorreo(Sale $sale, string $clave): bool

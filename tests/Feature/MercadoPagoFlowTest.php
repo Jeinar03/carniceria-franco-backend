@@ -334,14 +334,15 @@ class MercadoPagoFlowTest extends TestCase
         $this->assertSame($movimientos, DB::table('inventory_movements')->count());
     }
 
-    public function test_un_pago_rechazado_cancela_la_venta_pendiente(): void
+    public function test_un_pago_rechazado_no_cancela_la_venta_porque_el_cliente_puede_reintentar(): void
     {
         $venta = $this->crearVentaPendiente($this->cliente('a@test.com'));
         $this->pago(777, $venta, 'rejected');
 
         $this->webhook(777)->assertOk();
 
-        $this->assertSame('cancelada', $venta->fresh()->estatus);
+        // Sigue pendiente: si el cliente reintenta y paga, la venta se completa; si no, la vence ventas:expirar-pendientes.
+        $this->assertSame('pendiente', $venta->fresh()->estatus);
         $this->assertSame('rejected', $venta->fresh()->mercadopago_status);
         // El motivo del rechazo queda guardado para no depender del panel de Mercado Pago.
         $this->assertSame('cc_rejected_other_reason', $venta->fresh()->mercadopago_status_detail);

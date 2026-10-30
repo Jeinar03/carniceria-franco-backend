@@ -490,10 +490,11 @@ class MercadoPagoController extends Controller
             Log::error("Archivo: " . $e->getFile() . " (Línea: " . $e->getLine() . ")");
             Log::error("═══════════════════════════════════════");
 
+            report($e);
             return response()->json([
                 'success' => false,
                 'status'  => 500,
-                'message' => 'Error al crear preferencia: ' . $e->getMessage(),
+                'message' => 'Error al crear preferencia. Intenta de nuevo en un momento.',
                 'data'    => null,
             ], 500);
         }
@@ -679,9 +680,8 @@ class MercadoPagoController extends Controller
             $this->procesarPagoAprobado($venta, $payment);
         } elseif ($venta->estatus !== 'completada') {
             // Un intento fallido puede notificarse después del aprobado: nunca se degrada una venta ya cobrada.
-            if (in_array($payment->status, ['rejected', 'cancelled'], true)) {
-                $venta->estatus = 'cancelada';
-            }
+            // Un rechazo NO cancela la venta: el cliente puede reintentar con otra tarjeta. Si no paga,
+            // la vence el comando ventas:expirar-pendientes (24 h) y libera todo.
             $this->registrarPago($venta, $payment);
         }
 
@@ -723,6 +723,19 @@ class MercadoPagoController extends Controller
                 return true;
             }
 
+            // Cobro que llega cuando la venta ya estaba cancelada (vencida, cancelada por el cliente o el panel):
+            // no se revive, porque no hay stock apartado. Queda marcada para devolver el pago desde el panel.
+            if ($venta->estatus === 'cancelada') {
+                $venta->reembolso_estado = $venta->reembolso_estado === 'hecho' ? 'hecho' : 'pendiente';
+                $venta->requiere_revision = true;
+                $this->registrarPago($venta, $payment);
+                Log::warning('⚠️ Pago aprobado sobre una venta cancelada; falta devolver el pago desde el panel', [
+                    'venta_id'   => $venta->id,
+                    'payment_id' => $payment->id,
+                ]);
+                return false;
+            }
+
             // Se registra siempre: aunque la venta no se pueda completar, queda constancia del cobro.
             $this->registrarPago($venta, $payment);
 
@@ -735,6 +748,8 @@ class MercadoPagoController extends Controller
                     'pagado'      => $pagado,
                     'moneda'      => $payment->currency_id ?? null,
                 ]);
+                $venta->requiere_revision = true;
+                $venta->save();
                 return false;
             }
 
@@ -763,6 +778,8 @@ class MercadoPagoController extends Controller
                     'payment_id' => $payment->id,
                     'detalle'    => $e->getMessage(),
                 ]);
+                $venta->requiere_revision = true;
+                $venta->save();
                 return false;
             }
 
@@ -919,9 +936,10 @@ class MercadoPagoController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
-                'message' => 'Error al verificar pago: ' . $e->getMessage(),
+                'message' => 'Error al verificar pago. Intenta de nuevo en un momento.',
             ], 500);
         }
     }
@@ -949,9 +967,10 @@ class MercadoPagoController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
-                'message' => 'Error: ' . $e->getMessage(),
+                'message' => 'Error. Intenta de nuevo en un momento.',
             ], 500);
         }
     }

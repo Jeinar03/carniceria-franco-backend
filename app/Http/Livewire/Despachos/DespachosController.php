@@ -9,6 +9,7 @@ use App\Models\Sale;
 use App\Models\SaleDetail;
 use App\Services\InventoryService;
 use App\Services\PricingService;
+use App\Support\HoraLocal;
 use App\Models\Product;
 use App\Models\Customers;
 use App\Rules\UbicacionGoogleMaps;
@@ -993,6 +994,8 @@ class DespachosController extends Component
                         $sale->transferencia_estado = $sale->transferencia_estado ?: 'pendiente';
                         $sale->estatus = Sale::ESTATUS_PENDIENTE;
                     }
+                } elseif ($this->editMetodoPago === 'mercado_pago') {
+                    // El cobro de Mercado Pago lo confirma el webhook: editar el pedido nunca lo marca como pagado.
                 } else {
                     $sale->transferencia_estado = null;
                     $sale->estatus = Sale::ESTATUS_COMPLETADA;
@@ -1063,7 +1066,7 @@ class DespachosController extends Component
             return $error;
         }
 
-        if ($this->editFechaEntrega && $this->editFechaEntrega < now()->toDateString()) {
+        if ($this->editFechaEntrega && $this->editFechaEntrega < HoraLocal::hoy()) {
             return 'La fecha de entrega no puede ser anterior a hoy';
         }
 
@@ -1291,6 +1294,16 @@ class DespachosController extends Component
 
         if ($sale->metodo_pago !== 'transferencia') {
             $this->emit('despacho-error', 'La venta no corresponde a transferencia');
+            return;
+        }
+
+        if ($sale->estaCancelada()) {
+            $this->emit('despacho-error', 'La venta está cancelada: ya no se puede validar su transferencia');
+            return;
+        }
+
+        if ($sale->tieneCancelacionSolicitada()) {
+            $this->emit('despacho-error', 'El cliente pidió cancelar este pedido: resuelve la solicitud en Ventas primero');
             return;
         }
 
@@ -1585,7 +1598,7 @@ class DespachosController extends Component
             return $error;
         }
 
-        if ($this->createFechaEntrega && $this->createFechaEntrega < now()->toDateString()) {
+        if ($this->createFechaEntrega && $this->createFechaEntrega < HoraLocal::hoy()) {
             return 'La fecha de entrega no puede ser anterior a hoy';
         }
 
@@ -1689,6 +1702,15 @@ class DespachosController extends Component
 
     public function canManageDispatch(Sale $sale): bool
     {
+        // Cancelado, con solicitud de cancelacion o con el pago sin confirmar: no se prepara ni se envia.
+        if ($sale->estaCancelada() || $sale->tieneCancelacionSolicitada()) {
+            return false;
+        }
+
+        if ($sale->metodo_pago === 'mercado_pago') {
+            return $sale->estaPagada();
+        }
+
         if ($sale->metodo_pago !== 'transferencia') {
             return true;
         }

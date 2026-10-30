@@ -4,6 +4,7 @@ namespace App\Http\Livewire;
 
 use App\Models\Sale;
 use App\Models\SaleDetail;
+use App\Support\HoraLocal;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -34,14 +35,14 @@ class Dash extends Component
 
     public function mount()
     {
-        $this->year = Carbon::now()->year;
+        $this->year = HoraLocal::ahora()->year;
 
         if (empty($this->fechaInicio)) {
-            $this->fechaInicio = Carbon::now()->startOfMonth()->format('Y-m-d');
+            $this->fechaInicio = HoraLocal::ahora()->startOfMonth()->format('Y-m-d');
         }
 
         if (empty($this->fechaFin)) {
-            $this->fechaFin = Carbon::now()->endOfMonth()->format('Y-m-d');
+            $this->fechaFin = HoraLocal::ahora()->endOfMonth()->format('Y-m-d');
         }
 
         $this->refreshDashboard(false);
@@ -65,8 +66,8 @@ class Dash extends Component
 
     public function resetDateFilters()
     {
-        $this->fechaInicio = Carbon::now()->startOfMonth()->format('Y-m-d');
-        $this->fechaFin = Carbon::now()->endOfMonth()->format('Y-m-d');
+        $this->fechaInicio = HoraLocal::ahora()->startOfMonth()->format('Y-m-d');
+        $this->fechaFin = HoraLocal::ahora()->endOfMonth()->format('Y-m-d');
         $this->refreshDashboard();
     }
 
@@ -102,23 +103,31 @@ class Dash extends Component
         [$periodStart, $periodEnd] = $this->periodBounds();
 
         $ordersQuery = Sale::query()
-            ->whereBetween('fecha_venta', [$periodStart, $periodEnd]);
+            ->whereBetween('fecha_venta', $this->aUtc($periodStart, $periodEnd));
 
-        $totalPedidosPeriodo = (clone $ordersQuery)->count();
+        // Los pedidos que vencieron sin pagarse (cancelados por el sistema) nunca fueron un pedido real:
+        // no cuentan ni como error ni en el total. Los pendientes de pago tampoco cuentan como atendidos.
+        $sinVencidos = fn ($q) => $q->where(function ($w) {
+            $w->whereNull('cancelado_por_tipo')->orWhere('cancelado_por_tipo', '!=', 'sistema');
+        });
+
+        $totalPedidosPeriodo = $sinVencidos(clone $ordersQuery)->count();
         $pedidosAtendidos = (clone $ordersQuery)
             ->where('estatus', '!=', 'cancelada')
+            ->where('estatus', '!=', 'pendiente')
             ->count();
 
-        $pedidosCancelados = (clone $ordersQuery)
+        $pedidosCancelados = $sinVencidos(clone $ordersQuery)
             ->where('estatus', 'cancelada')
             ->count();
 
         $ticketPromedio = (clone $ordersQuery)
             ->where('estatus', '!=', 'cancelada')
+            ->where('estatus', '!=', 'pendiente')
             ->avg('total');
 
         $avgProcessingMinutes = Sale::query()
-            ->whereBetween('fecha_venta', [$periodStart, $periodEnd])
+            ->whereBetween('fecha_venta', $this->aUtc($periodStart, $periodEnd))
             ->where(function ($query) {
                 $query->whereIn('estado_envio', ['Enviado', 'Entregado', 'Entregada'])
                     ->orWhereIn('estatus', ['entregado', 'entregada']);
@@ -133,18 +142,18 @@ class Dash extends Component
 
         if (Schema::hasTable('indicador_respuestas') && Schema::hasTable('indicador_preguntas')) {
             $totalEncuestas = DB::table('indicador_respuestas')
-                ->whereBetween('created_at', [$periodStart, $periodEnd])
+                ->whereBetween('created_at', $this->aUtc($periodStart, $periodEnd))
                 ->select('sale_id', 'customer_id')
                 ->distinct()
                 ->count();
 
             $satisfaccionPromedio = DB::table('indicador_respuestas')
-                ->whereBetween('created_at', [$periodStart, $periodEnd])
+                ->whereBetween('created_at', $this->aUtc($periodStart, $periodEnd))
                 ->avg('respuesta');
 
             $recomendacionesQuery = DB::table('indicador_respuestas as ir')
                 ->join('indicador_preguntas as ip', 'ip.id', '=', 'ir.pregunta_id')
-                ->whereBetween('ir.created_at', [$periodStart, $periodEnd])
+                ->whereBetween('ir.created_at', $this->aUtc($periodStart, $periodEnd))
                 ->where(function ($query) {
                     $query->where('ip.pregunta', 'like', '%recomend%')
                         ->orWhere('ip.descripcion', 'like', '%recomend%');
@@ -162,8 +171,9 @@ class Dash extends Component
 
         $this->kpis = [
             'periodo' => $periodStart->format('d/m/Y') . ' - ' . $periodEnd->format('d/m/Y'),
-            'pedidos_hoy' => Sale::whereDate('fecha_venta', Carbon::today())
+            'pedidos_hoy' => Sale::whereBetween('fecha_venta', HoraLocal::rangoUtc(HoraLocal::hoy(), HoraLocal::hoy()))
                 ->where('estatus', '!=', 'cancelada')
+                ->where('estatus', '!=', 'pendiente')
                 ->count(),
             'pedidos_atendidos' => $pedidosAtendidos,
             'tasa_errores' => $totalPedidosPeriodo > 0 ? ($pedidosCancelados / $totalPedidosPeriodo) * 100 : 0,
@@ -179,12 +189,13 @@ class Dash extends Component
     {
         [$start, $end] = $this->periodBounds();
 
+        // Se agrupa por el dia de la tienda (Mexico), no por el dia UTC en que se guarda fecha_venta.
         $ordersByDay = Sale::query()
-            ->selectRaw('DATE(fecha_venta) as day, COUNT(*) as total')
-            ->whereBetween('fecha_venta', [$start, $end])
+            ->whereBetween('fecha_venta', $this->aUtc($start, $end))
             ->where('estatus', '!=', 'cancelada')
-            ->groupByRaw('DATE(fecha_venta)')
-            ->pluck('total', 'day')
+            ->where('estatus', '!=', 'pendiente')
+            ->pluck('fecha_venta')
+            ->countBy(fn ($fecha) => HoraLocal::de($fecha)->format('Y-m-d'))
             ->toArray();
 
         $this->dailyOrdersLabels = [];
@@ -222,7 +233,7 @@ class Dash extends Component
 
         $distribution = DB::table('indicador_respuestas')
             ->selectRaw('respuesta, COUNT(*) as total')
-            ->whereBetween('created_at', [$periodStart, $periodEnd])
+            ->whereBetween('created_at', $this->aUtc($periodStart, $periodEnd))
             ->groupBy('respuesta')
             ->pluck('total', 'respuesta')
             ->toArray();
@@ -234,7 +245,7 @@ class Dash extends Component
         $questionAverages = DB::table('indicador_respuestas as ir')
             ->join('indicador_preguntas as ip', 'ip.id', '=', 'ir.pregunta_id')
             ->selectRaw('ip.pregunta, AVG(ir.respuesta) as promedio')
-            ->whereBetween('ir.created_at', [$periodStart, $periodEnd])
+            ->whereBetween('ir.created_at', $this->aUtc($periodStart, $periodEnd))
             ->groupBy('ip.id', 'ip.pregunta')
             ->orderBy('ip.orden')
             ->limit(5)
@@ -256,11 +267,11 @@ class Dash extends Component
         [$periodStart, $periodEnd] = $this->periodBounds();
 
         $monthlyTotals = Sale::query()
-            ->selectRaw('MONTH(fecha_venta) as month, COALESCE(SUM(total),0) as total')
-            ->whereBetween('fecha_venta', [$periodStart, $periodEnd])
+            ->whereBetween('fecha_venta', $this->aUtc($periodStart, $periodEnd))
             ->where('estatus', 'completada')
-            ->groupByRaw('MONTH(fecha_venta)')
-            ->pluck('total', 'month')
+            ->get(['fecha_venta', 'total'])
+            ->groupBy(fn ($venta) => (int) HoraLocal::de($venta->fecha_venta)->format('n'))
+            ->map(fn ($ventas) => (float) $ventas->sum('total'))
             ->toArray();
 
         $this->salesByMonthData = [];
@@ -276,7 +287,7 @@ class Dash extends Component
         $topProducts = SaleDetail::query()
             ->selectRaw('COALESCE(producto_nombre, "Producto") as product, COALESCE(SUM(cantidad),0) as total')
             ->whereHas('sale', function ($q) use ($periodStart, $periodEnd) {
-                $q->whereBetween('fecha_venta', [$periodStart, $periodEnd])
+                $q->whereBetween('fecha_venta', $this->aUtc($periodStart, $periodEnd))
                     ->where('estatus', 'completada');
             })
             ->groupBy('producto_nombre')
@@ -303,11 +314,11 @@ class Dash extends Component
         [$periodStart, $periodEnd] = $this->periodBounds();
 
         $weekTotals = Sale::query()
-            ->selectRaw('WEEKDAY(fecha_venta) as day_index, COALESCE(SUM(total),0) as total')
-            ->whereBetween('fecha_venta', [$periodStart, $periodEnd])
+            ->whereBetween('fecha_venta', $this->aUtc($periodStart, $periodEnd))
             ->where('estatus', 'completada')
-            ->groupByRaw('WEEKDAY(fecha_venta)')
-            ->pluck('total', 'day_index')
+            ->get(['fecha_venta', 'total'])
+            ->groupBy(fn ($venta) => HoraLocal::de($venta->fecha_venta)->dayOfWeekIso - 1)
+            ->map(fn ($ventas) => (float) $ventas->sum('total'))
             ->toArray();
 
         $this->weekSalesData = [];
@@ -316,19 +327,29 @@ class Dash extends Component
         }
     }
 
+    /** Convierte un rango de la tienda (Mexico) a UTC, que es como se guardan las fechas. */
+    private function aUtc(Carbon $inicio, Carbon $fin): array
+    {
+        return [
+            $inicio->copy()->timezone(config('app.timezone')),
+            $fin->copy()->timezone(config('app.timezone')),
+        ];
+    }
+
+    /** Inicio y fin del periodo elegido, en la zona de la tienda (Mexico). */
     private function periodBounds(): array
     {
         try {
-            $start = Carbon::parse($this->fechaInicio ?: Carbon::now()->startOfMonth())->startOfDay();
+            $start = Carbon::parse($this->fechaInicio ?: HoraLocal::ahora()->startOfMonth()->format('Y-m-d'), config('app.horario_timezone'))->startOfDay();
         } catch (\Throwable $e) {
-            $start = Carbon::now()->startOfMonth()->startOfDay();
+            $start = HoraLocal::ahora()->startOfMonth()->startOfDay();
             $this->fechaInicio = $start->format('Y-m-d');
         }
 
         try {
-            $end = Carbon::parse($this->fechaFin ?: Carbon::now()->endOfMonth())->endOfDay();
+            $end = Carbon::parse($this->fechaFin ?: HoraLocal::ahora()->endOfMonth()->format('Y-m-d'), config('app.horario_timezone'))->endOfDay();
         } catch (\Throwable $e) {
-            $end = Carbon::now()->endOfMonth()->endOfDay();
+            $end = HoraLocal::ahora()->endOfMonth()->endOfDay();
             $this->fechaFin = $end->format('Y-m-d');
         }
 
