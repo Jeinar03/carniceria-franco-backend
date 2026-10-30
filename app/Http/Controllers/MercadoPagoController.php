@@ -783,15 +783,7 @@ class MercadoPagoController extends Controller
                 return false;
             }
 
-            $customer = Customers::find($venta->customer_id);
-            if ($customer) {
-                $customer->total_compras       = ($customer->total_compras ?? 0) + $venta->total;
-                $customer->numero_compras      = ($customer->numero_compras ?? 0) + 1;
-                $customer->fecha_ultima_compra = now();
-                $customer->save();
-
-                Log::info("👤 Cliente actualizado: {$customer->nombre}");
-            }
+            // Las estadísticas del cliente las recalcula el modelo Sale al pasar la venta a completada.
 
             Log::info('✅ Pago procesado correctamente', [
                 'venta_id'   => $venta->id,
