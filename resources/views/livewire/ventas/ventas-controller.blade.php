@@ -140,11 +140,25 @@
                                         @if($venta->estatus == 'completada')
                                             <span class="badge badge-success">Completada</span>
                                         @elseif($venta->estatus == 'pendiente')
-                                            <span class="badge badge-warning">Pendiente</span>
+                                            <span class="badge badge-warning">Sin pagar</span>
                                         @elseif($venta->estatus == 'cancelada')
                                             <span class="badge badge-danger">Cancelada</span>
                                         @else
                                             <span class="badge badge-info">Entregada</span>
+                                        @endif
+
+                                        @if($venta->tieneCancelacionSolicitada())
+                                            <span class="badge badge-info d-block mt-1" title="{{ $venta->cancelacion_motivo }}">Cancelación solicitada</span>
+                                        @endif
+                                        @if($venta->reembolso_estado === 'pendiente')
+                                            <span class="badge badge-danger d-block mt-1">Falta devolver el pago</span>
+                                        @elseif($venta->reembolso_estado === 'hecho')
+                                            <span class="badge badge-success d-block mt-1">Pago devuelto</span>
+                                        @elseif($venta->reembolso_estado === 'manual')
+                                            <span class="badge badge-warning d-block mt-1">Devolver a mano</span>
+                                        @endif
+                                        @if($venta->requiere_revision && $venta->reembolso_estado !== 'pendiente')
+                                            <span class="badge badge-danger d-block mt-1" title="El pago se aprobó pero el pedido no se pudo completar (monto o existencia)">Revisar pago</span>
                                         @endif
                                     </td>
                                     <td>
@@ -172,11 +186,29 @@
                                                 <i class="fas fa-spinner fa-spin"></i>
                                             </span>
                                         </button>
-                                        @if($venta->estatus != 'cancelada' && \App\Support\PanelRoles::esAdmin(auth()->user()))
-                                            <button onclick="confirmCancel({{ $venta->id }}, this)"
-                                                class="btn btn-sm btn-outline-danger mtmobile" title="Cancelar">
-                                                <i class="fas fa-ban"></i>
-                                            </button>
+                                        @if(\App\Support\PanelRoles::esAdmin(auth()->user()))
+                                            @if($venta->tieneCancelacionSolicitada())
+                                                <button onclick="accionVenta('aprobarCancelacion', {{ $venta->id }}, this, '¿Aprobar la cancelación?', '{{ $venta->metodo_pago === 'mercado_pago' && $venta->estaPagada() ? 'Se devolverá el pago completo por Mercado Pago y el pedido quedará cancelado.' : 'El pedido quedará cancelado y se repondrá el stock.' }}')"
+                                                    class="btn btn-sm btn-success mtmobile" title="Aprobar cancelación">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                                <button onclick="accionVenta('rechazarCancelacion', {{ $venta->id }}, this, '¿Rechazar la solicitud?', 'El pedido sigue su curso normal y se avisa al cliente.')"
+                                                    class="btn btn-sm btn-outline-secondary mtmobile" title="Rechazar solicitud">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            @endif
+                                            @if($venta->reembolso_estado === 'pendiente')
+                                                <button onclick="accionVenta('devolverPago', {{ $venta->id }}, this, '¿Devolver el pago?', 'Se devolverá el pago completo por Mercado Pago.')"
+                                                    class="btn btn-sm btn-warning mtmobile" title="Devolver pago">
+                                                    <i class="fas fa-undo"></i>
+                                                </button>
+                                            @endif
+                                            @if($venta->estatus != 'cancelada' && !$venta->tieneCancelacionSolicitada())
+                                                <button onclick="confirmCancel({{ $venta->id }}, this)"
+                                                    class="btn btn-sm btn-outline-danger mtmobile" title="Cancelar">
+                                                    <i class="fas fa-ban"></i>
+                                                </button>
+                                            @endif
                                         @endif
                                     </td>
                                 </tr>
@@ -331,6 +363,23 @@
     function confirmCancel(saleId, btn) {
         setCancelButtonLoading(btn);
         window.livewire.emit('cancelSale', saleId);
+    }
+
+    // Aprobar o rechazar una solicitud y devolver un pago: piden confirmacion porque mueven dinero.
+    function accionVenta(evento, saleId, btn, titulo, texto) {
+        // El panel usa SweetAlert2 7: el tipo va en "type" y la confirmacion llega en "value" (no isConfirmed).
+        Swal.fire({
+            type: 'question',
+            title: titulo,
+            text: texto,
+            showCancelButton: true,
+            confirmButtonText: 'Sí, continuar',
+            cancelButtonText: 'Volver'
+        }).then(function (resultado) {
+            if (!(resultado && (resultado.value || resultado.isConfirmed))) return;
+            setCancelButtonLoading(btn);
+            window.livewire.emit(evento, saleId);
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function() {

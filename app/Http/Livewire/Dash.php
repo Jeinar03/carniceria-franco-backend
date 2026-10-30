@@ -105,17 +105,25 @@ class Dash extends Component
         $ordersQuery = Sale::query()
             ->whereBetween('fecha_venta', $this->aUtc($periodStart, $periodEnd));
 
-        $totalPedidosPeriodo = (clone $ordersQuery)->count();
+        // Los pedidos que vencieron sin pagarse (cancelados por el sistema) nunca fueron un pedido real:
+        // no cuentan ni como error ni en el total. Los pendientes de pago tampoco cuentan como atendidos.
+        $sinVencidos = fn ($q) => $q->where(function ($w) {
+            $w->whereNull('cancelado_por_tipo')->orWhere('cancelado_por_tipo', '!=', 'sistema');
+        });
+
+        $totalPedidosPeriodo = $sinVencidos(clone $ordersQuery)->count();
         $pedidosAtendidos = (clone $ordersQuery)
             ->where('estatus', '!=', 'cancelada')
+            ->where('estatus', '!=', 'pendiente')
             ->count();
 
-        $pedidosCancelados = (clone $ordersQuery)
+        $pedidosCancelados = $sinVencidos(clone $ordersQuery)
             ->where('estatus', 'cancelada')
             ->count();
 
         $ticketPromedio = (clone $ordersQuery)
             ->where('estatus', '!=', 'cancelada')
+            ->where('estatus', '!=', 'pendiente')
             ->avg('total');
 
         $avgProcessingMinutes = Sale::query()
@@ -165,6 +173,7 @@ class Dash extends Component
             'periodo' => $periodStart->format('d/m/Y') . ' - ' . $periodEnd->format('d/m/Y'),
             'pedidos_hoy' => Sale::whereBetween('fecha_venta', HoraLocal::rangoUtc(HoraLocal::hoy(), HoraLocal::hoy()))
                 ->where('estatus', '!=', 'cancelada')
+                ->where('estatus', '!=', 'pendiente')
                 ->count(),
             'pedidos_atendidos' => $pedidosAtendidos,
             'tasa_errores' => $totalPedidosPeriodo > 0 ? ($pedidosCancelados / $totalPedidosPeriodo) * 100 : 0,
@@ -184,6 +193,7 @@ class Dash extends Component
         $ordersByDay = Sale::query()
             ->whereBetween('fecha_venta', $this->aUtc($start, $end))
             ->where('estatus', '!=', 'cancelada')
+            ->where('estatus', '!=', 'pendiente')
             ->pluck('fecha_venta')
             ->countBy(fn ($fecha) => HoraLocal::de($fecha)->format('Y-m-d'))
             ->toArray();

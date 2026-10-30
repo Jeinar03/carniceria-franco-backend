@@ -191,7 +191,12 @@
                                             $transferenciaPendiente = $venta->metodo_pago === 'transferencia' && $venta->transferencia_estado !== 'aprobada';
                                         @endphp
 
-                                        @if($transferenciaPendiente)
+                                        @if($venta->tieneCancelacionSolicitada())
+                                            <button class="btn btn-secondary btn-rounded mb-2" disabled title="El cliente pidió cancelar este pedido: resuélvelo en Ventas">
+                                                <i class="fas fa-boxes"></i>
+                                            </button>
+                                            <span class="badge badge-info d-block">Cancelación solicitada</span>
+                                        @elseif($transferenciaPendiente)
                                             <button class="btn btn-secondary btn-rounded mb-2" disabled title="Debes validar la transferencia primero">
                                                 <i class="fas fa-boxes"></i>
                                             </button>

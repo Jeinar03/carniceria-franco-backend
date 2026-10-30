@@ -8,6 +8,7 @@ use Livewire\WithPagination;
 use App\Models\Sale;
 use App\Models\Customers;
 use App\Models\Product;
+use App\Services\CancelacionVentaService;
 use App\Services\InventoryService;
 use App\Support\HoraLocal;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +42,9 @@ class VentasController extends Component
 
     protected $listeners = [
         'cancelSale' => 'cancelSale',
+        'aprobarCancelacion' => 'aprobarCancelacion',
+        'rechazarCancelacion' => 'rechazarCancelacion',
+        'devolverPago' => 'devolverPago',
         'detailModalClosed' => 'closeDetail'
     ];
 
@@ -106,47 +110,72 @@ class VentasController extends Component
     {
         $this->requirePanelRole('Admin');
 
+        $this->ejecutarCancelacion(function (CancelacionVentaService $cancelaciones) use ($saleId) {
+            $sale = $cancelaciones->cancelarPorAdmin((int) $saleId, (int) auth()->id());
+
+            return $sale->reembolso_estado === 'hecho'
+                ? 'Venta cancelada y pago devuelto por Mercado Pago'
+                : ($sale->reembolso_estado === 'manual'
+                    ? 'Venta cancelada. Devuelve la transferencia al cliente a mano'
+                    : 'Venta cancelada exitosamente');
+        }, $saleId);
+    }
+
+    /** Aprueba la solicitud del cliente: devuelve el pago de Mercado Pago (si hubo) y cancela. */
+    public function aprobarCancelacion($saleId)
+    {
+        $this->requirePanelRole('Admin');
+
+        $this->ejecutarCancelacion(function (CancelacionVentaService $cancelaciones) use ($saleId) {
+            $sale = Sale::findOrFail((int) $saleId);
+            if (!$sale->tieneCancelacionSolicitada()) {
+                throw new \RuntimeException('Este pedido no tiene una solicitud de cancelación pendiente');
+            }
+
+            $sale = $cancelaciones->cancelarPorAdmin((int) $saleId, (int) auth()->id());
+
+            return $sale->reembolso_estado === 'manual'
+                ? 'Solicitud aprobada. Devuelve la transferencia al cliente a mano'
+                : 'Solicitud aprobada y pedido cancelado';
+        }, $saleId);
+    }
+
+    public function rechazarCancelacion($saleId)
+    {
+        $this->requirePanelRole('Admin');
+
+        $this->ejecutarCancelacion(function (CancelacionVentaService $cancelaciones) use ($saleId) {
+            $cancelaciones->rechazarSolicitud((int) $saleId);
+
+            return 'Solicitud rechazada; el pedido sigue su curso';
+        }, $saleId);
+    }
+
+    /** Pago aprobado que llego a una venta ya cancelada: se devuelve con un clic. */
+    public function devolverPago($saleId)
+    {
+        $this->requirePanelRole('Admin');
+
+        $this->ejecutarCancelacion(function (CancelacionVentaService $cancelaciones) use ($saleId) {
+            $cancelaciones->devolverPagoPendiente((int) $saleId);
+
+            return 'Pago devuelto por Mercado Pago';
+        }, $saleId);
+    }
+
+    private function ejecutarCancelacion(callable $accion, $saleId): void
+    {
         try {
-            DB::transaction(function () use ($saleId) {
-                $sale = Sale::with('details')->lockForUpdate()->find($saleId);
+            $mensaje = $accion(app(CancelacionVentaService::class));
 
-                if (!$sale) {
-                    throw new \RuntimeException('Venta no encontrada');
-                }
-
-                if ($sale->estatus === 'cancelada') {
-                    throw new \RuntimeException('La venta ya está cancelada');
-                }
-
-                // Devolver stock a los productos
-                foreach ($sale->details as $detail) {
-                    $product = Product::find($detail->product_id);
-                    if ($product) {
-                        app(InventoryService::class)->restoreCancelledSale($product, $detail, auth()->id());
-                    }
-                }
-
-                // Actualizar estadísticas del cliente
-                $customer = Customers::find($sale->customer_id);
-                if ($customer) {
-                    $customer->total_compras = max(0, (float) $customer->total_compras - (float) $sale->total);
-                    $customer->numero_compras = max(0, (int) $customer->numero_compras - 1);
-                    $customer->save();
-                }
-
-                // Cambiar estatus
-                $sale->estatus = 'cancelada';
-                $sale->save();
-            });
-
-            $this->emit('sale-cancelled', 'Venta cancelada exitosamente');
+            $this->emit('sale-cancelled', $mensaje);
         } catch (Throwable $e) {
             Log::error('Error al cancelar venta', [
                 'sale_id' => $saleId,
                 'error' => $e->getMessage(),
             ]);
 
-            $this->emit('sale-error', 'Error al cancelar la venta: ' . $e->getMessage());
+            $this->emit('sale-error', 'No se pudo completar: ' . $e->getMessage());
         }
     }
 
@@ -171,16 +200,19 @@ class VentasController extends Component
         $totalesQuery = Sale::query();
         $totalesQuery = $this->applyFilters($totalesQuery);
 
+        // Solo cuentan los pedidos pagados: ni cancelados ni pendientes de pago (Mercado Pago sin pagar, transferencia sin validar).
+        $estatusPagados = ['completada', 'entregada'];
+
         $totales = [
             'total_ventas' => (clone $totalesQuery)
-                ->where('estatus', '!=', 'cancelada')
+                ->whereIn('estatus', $estatusPagados)
                 ->sum('total'),
             'numero_ventas' => (clone $totalesQuery)
-                ->where('estatus', '!=', 'cancelada')
+                ->whereIn('estatus', $estatusPagados)
                 ->count(),
             'ventas_hoy' => (clone $totalesQuery)
                 ->whereDate('fecha_venta', today())
-                ->where('estatus', '!=', 'cancelada')
+                ->whereIn('estatus', $estatusPagados)
                 ->sum('total'),
         ];
 

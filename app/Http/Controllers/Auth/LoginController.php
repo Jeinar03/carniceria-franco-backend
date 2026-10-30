@@ -43,6 +43,14 @@ class LoginController extends Controller
     {
         $this->middleware('guest')->except('logout');
     }
+
+    /**
+     * Solo entran usuarios activos: un empleado bloqueado desde Usuarios ya no puede iniciar sesion.
+     */
+    protected function credentials(\Illuminate\Http\Request $request)
+    {
+        return array_merge($request->only($this->username(), 'password'), ['status' => 'ACTIVE']);
+    }
 }
 
 

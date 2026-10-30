@@ -58,6 +58,15 @@ class Sale extends Model
         'estado_envio',
         'entregado_at',
         'entregado_por',
+        'cancelacion_solicitada_at',
+        'cancelacion_motivo',
+        'cancelado_at',
+        'cancelado_por_tipo',
+        'reembolso_id',
+        'reembolso_estado',
+        'reembolso_monto',
+        'reembolsado_at',
+        'requiere_revision',
     ];
 
     protected $casts = [
@@ -71,6 +80,11 @@ class Sale extends Model
         'transferencia_validada_at' => 'datetime',
         'entregado_at' => 'datetime',
         'aviso_mandadito_aceptado_at' => 'datetime',
+        'cancelacion_solicitada_at' => 'datetime',
+        'cancelado_at' => 'datetime',
+        'reembolsado_at' => 'datetime',
+        'reembolso_monto' => 'decimal:2',
+        'requiere_revision' => 'boolean',
     ];
 
     protected $attributes = [
@@ -212,7 +226,28 @@ class Sale extends Model
     public function scopeEnColaDespacho($query)
     {
         return $query->whereIn('estado_envio', [self::ENVIO_PENDIENTE, self::ENVIO_PROCESANDO, self::ENVIO_LISTO])
-            ->where('estatus', '!=', self::ESTATUS_CANCELADA);
+            ->where('estatus', '!=', self::ESTATUS_CANCELADA)
+            ->where(function ($q) {
+                // Un pedido de Mercado Pago sin pagar no se prepara: aparece hasta que el pago se aprueba.
+                $q->where('metodo_pago', '!=', 'mercado_pago')
+                    ->orWhere('estatus', self::ESTATUS_COMPLETADA);
+            });
+    }
+
+    /** Pagado = completada. Mercado Pago pendiente o transferencia sin aprobar es "sin pagar". */
+    public function estaPagada(): bool
+    {
+        return $this->estatus === self::ESTATUS_COMPLETADA;
+    }
+
+    public function estaCancelada(): bool
+    {
+        return $this->estatus === self::ESTATUS_CANCELADA;
+    }
+
+    public function tieneCancelacionSolicitada(): bool
+    {
+        return $this->cancelacion_solicitada_at !== null && !$this->estaCancelada();
     }
 
     // Scope para pedidos de entrega inmediata (sin fecha_entrega o ya vencida/hoy)

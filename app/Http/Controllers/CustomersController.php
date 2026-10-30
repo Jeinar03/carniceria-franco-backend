@@ -96,18 +96,20 @@ class CustomersController extends Controller
             ], 201);
         } catch (\Illuminate\Database\QueryException $e) {
             // Error de la base de datos
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error en la base de datos al crear usuario: ' . $e->getMessage(),
+                'message' => 'Error en la base de datos al crear usuario. Intenta de nuevo en un momento.',
                 'data' => null
             ]);
         } catch (\Exception $e) {
             // Otro tipo de error
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al crear usuario: ' . $e->getMessage(),
+                'message' => 'Error al crear usuario. Intenta de nuevo en un momento.',
                 'data' => null
             ]);
         }
@@ -177,10 +179,11 @@ class CustomersController extends Controller
                 ]
             ], 200);
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al iniciar sesión: ' . $e->getMessage(),
+                'message' => 'Error al iniciar sesión. Intenta de nuevo en un momento.',
                 'data' => null,
             ], 500);
         }
@@ -288,6 +291,18 @@ class CustomersController extends Controller
                 }
             }
 
+            // Cambiar el correo o la contrasena exige la contrasena actual: con solo un token robado
+            // nadie debe poder quedarse con la cuenta.
+            $cambiaCredenciales = $request->filled('password') || array_key_exists('correo', $changes);
+            if ($cambiaCredenciales && !Hash::check((string) $request->input('password_actual'), (string) $cliente->password)) {
+                return response()->json([
+                    'success' => false,
+                    'status' => 422,
+                    'message' => 'Escribe tu contraseña actual para cambiar tu correo o tu contraseña',
+                    'data' => null
+                ], 422);
+            }
+
             if ($request->filled('password')) {
                 $changes['password'] = Hash::make($request->input('password'));
             }
@@ -295,6 +310,12 @@ class CustomersController extends Controller
             if (!empty($changes)) {
                 $cliente->fill($changes);
                 $cliente->save();
+
+                // Con contrasena nueva se cierran las demas sesiones; la actual se conserva.
+                if (isset($changes['password'])) {
+                    $actual = $request->user()->currentAccessToken();
+                    $cliente->tokens()->when($actual && isset($actual->id), fn ($q) => $q->where('id', '!=', $actual->id))->delete();
+                }
             }
 
 
@@ -308,10 +329,11 @@ class CustomersController extends Controller
                 ]
             ], 200);
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al actualizar el cliente: ' . $e->getMessage(),
+                'message' => 'Error al actualizar el cliente. Intenta de nuevo en un momento.',
                 'data' => null
             ], 500);
         }
@@ -371,10 +393,11 @@ class CustomersController extends Controller
                 'data' => null // Asegurarse de que no se incluyen datos binarios en la respuesta
             ], 201);
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al guardar imágenes: ' . $e->getMessage(),
+                'message' => 'Error al guardar imágenes. Intenta de nuevo en un momento.',
                 'data' => null
             ], 500);
         }
@@ -425,10 +448,11 @@ class CustomersController extends Controller
                 'data' => $imagenesBase64
             ], 200);
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al obtener las imágenes: ' . $e->getMessage(),
+                'message' => 'Error al obtener las imágenes. Intenta de nuevo en un momento.',
                 'data' => null
             ], 500);
         }
@@ -481,10 +505,11 @@ class CustomersController extends Controller
                 'data' => null
             ], 200);
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
                 'status' => 500,
-                'message' => 'Error al eliminar la imagen: ' . $e->getMessage(),
+                'message' => 'Error al eliminar la imagen. Intenta de nuevo en un momento.',
                 'data' => null
             ], 500);
         }
