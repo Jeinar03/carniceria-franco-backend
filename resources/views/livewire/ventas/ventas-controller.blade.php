@@ -149,6 +149,7 @@
 
                                         @if($venta->tieneCancelacionSolicitada())
                                             <span class="badge badge-info d-block mt-1" title="{{ $venta->cancelacion_motivo }}">Cancelación solicitada</span>
+                                            <small class="d-block text-muted mt-1">Motivo: {{ \Illuminate\Support\Str::limit($venta->cancelacion_motivo ?: 'sin motivo', 60) }}</small>
                                         @endif
                                         @if($venta->reembolso_estado === 'pendiente')
                                             <span class="badge badge-danger d-block mt-1">Falta devolver el pago</span>
@@ -189,10 +190,12 @@
                                         @if(\App\Support\PanelRoles::esAdmin(auth()->user()))
                                             @if($venta->tieneCancelacionSolicitada())
                                                 <button onclick="accionVenta('aprobarCancelacion', {{ $venta->id }}, this, '¿Aprobar la cancelación?', '{{ $venta->metodo_pago === 'mercado_pago' && $venta->estaPagada() ? 'Se devolverá el pago completo por Mercado Pago y el pedido quedará cancelado.' : 'El pedido quedará cancelado y se repondrá el stock.' }}')"
+                                                    data-motivo="{{ $venta->cancelacion_motivo }}"
                                                     class="btn btn-sm btn-success mtmobile" title="Aprobar cancelación">
                                                     <i class="fas fa-check"></i>
                                                 </button>
-                                                <button onclick="accionVenta('rechazarCancelacion', {{ $venta->id }}, this, '¿Rechazar la solicitud?', 'El pedido sigue su curso normal y se avisa al cliente.')"
+                                                <button onclick="accionVenta('rechazarCancelacion', {{ $venta->id }}, this, '¿Rechazar la solicitud?', 'El pedido sigue su curso normal y se avisa al cliente por correo.', true)"
+                                                    data-motivo="{{ $venta->cancelacion_motivo }}"
                                                     class="btn btn-sm btn-outline-secondary mtmobile" title="Rechazar solicitud">
                                                     <i class="fas fa-times"></i>
                                                 </button>
@@ -366,19 +369,40 @@
     }
 
     // Aprobar o rechazar una solicitud y devolver un pago: piden confirmacion porque mueven dinero.
-    function accionVenta(evento, saleId, btn, titulo, texto) {
+    function escaparHtml(texto) {
+        return $('<div>').text(texto || '').html();
+    }
+
+    // motivo: lo que escribio el cliente (se muestra antes de decidir).
+    // pedirRespuesta: al rechazar, el Admin puede escribir una respuesta que le llega al cliente por correo.
+    function accionVenta(evento, saleId, btn, titulo, texto, pedirRespuesta) {
+        var motivo = btn && btn.getAttribute ? btn.getAttribute('data-motivo') : null;
         // El panel usa SweetAlert2 7: el tipo va en "type" y la confirmacion llega en "value" (no isConfirmed).
-        Swal.fire({
+        var opciones = {
             type: 'question',
             title: titulo,
-            text: texto,
+            html: '<p>' + escaparHtml(texto) + '</p>' +
+                (motivo !== null ? '<p class="mb-0"><strong>Motivo del cliente:</strong><br>' + escaparHtml(motivo || 'No escribió motivo') + '</p>' : ''),
             showCancelButton: true,
             confirmButtonText: 'Sí, continuar',
             cancelButtonText: 'Volver'
-        }).then(function (resultado) {
-            if (!(resultado && (resultado.value || resultado.isConfirmed))) return;
+        };
+
+        if (pedirRespuesta) {
+            opciones.input = 'textarea';
+            opciones.inputPlaceholder = 'Respuesta para el cliente (opcional): por qué no se puede cancelar';
+            opciones.inputAttributes = { maxlength: 255 };
+        }
+
+        Swal.fire(opciones).then(function (resultado) {
+            if (!resultado || resultado.dismiss || resultado.isDismissed) return;
+            if (pedirRespuesta ? resultado.value === undefined : !(resultado.value || resultado.isConfirmed)) return;
             setCancelButtonLoading(btn);
-            window.livewire.emit(evento, saleId);
+            if (pedirRespuesta) {
+                window.livewire.emit(evento, saleId, typeof resultado.value === 'string' ? resultado.value : '');
+            } else {
+                window.livewire.emit(evento, saleId);
+            }
         });
     }
 
@@ -391,7 +415,7 @@
         window.livewire.on('sale-cancelled', msg => {
             resetCancelButtonLoading();
             Swal.fire({
-                icon: 'success',
+                type: 'success',
                 title: 'Éxito',
                 text: msg
             });
@@ -400,7 +424,7 @@
         window.livewire.on('sale-error', msg => {
             resetCancelButtonLoading();
             Swal.fire({
-                icon: 'error',
+                type: 'error',
                 title: 'Error',
                 text: msg
             });

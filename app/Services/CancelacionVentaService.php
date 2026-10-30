@@ -137,7 +137,7 @@ class CancelacionVentaService
     }
 
     /** El Admin rechaza la solicitud: el pedido sigue su curso normal. */
-    public function rechazarSolicitud(int $saleId): Sale
+    public function rechazarSolicitud(int $saleId, ?string $respuesta = null): Sale
     {
         $sale = DB::transaction(function () use ($saleId) {
             $sale = Sale::lockForUpdate()->findOrFail($saleId);
@@ -153,7 +153,7 @@ class CancelacionVentaService
             return $sale;
         });
 
-        OrderNotificationService::sendCancellationRejectedNotification(Sale::with(['customer', 'details'])->find($sale->id));
+        OrderNotificationService::sendCancellationRejectedNotification(Sale::with(['customer', 'details'])->find($sale->id), $respuesta);
 
         return $sale;
     }
