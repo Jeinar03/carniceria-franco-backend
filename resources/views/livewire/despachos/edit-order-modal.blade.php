@@ -67,9 +67,16 @@
                                     <small class="text-muted d-block mt-1">Déjalo vacío para entrega inmediata (hoy). Con una fecha posterior, el pedido se mueve a "Pedidos Programados".</small>
                                 </div>
 
+                                @if($editNotaCliente)
+                                <div class="form-group">
+                                    <label>Nota del cliente</label>
+                                    <div class="form-control-plaintext border rounded px-2 bg-light" style="white-space: pre-line;">{{ $editNotaCliente }}</div>
+                                </div>
+                                @endif
+
                                 <div class="form-group mb-0">
-                                    <label>Notas</label>
-                                    <textarea wire:model="editNotas" class="form-control" rows="3" placeholder="Notas internas del pedido..."></textarea>
+                                    <label>Notas internas</label>
+                                    <textarea wire:model="editNotas" class="form-control" rows="3" placeholder="Notas internas del pedido (el cliente no las ve)..."></textarea>
                                 </div>
                             </div>
                         </div>

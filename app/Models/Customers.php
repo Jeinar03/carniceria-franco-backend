@@ -62,9 +62,11 @@ class Customers extends Authenticatable implements MustVerifyEmail
         'descuento_preferencial' => 0.00,
     ];
 
+    // notas = observaciones del personal desde el panel; no salen por la API (hallazgo S-14).
     protected $hidden = [
         'password',
         'remember_token',
+        'notas',
     ];
 
     public function indicadorRespuestas()

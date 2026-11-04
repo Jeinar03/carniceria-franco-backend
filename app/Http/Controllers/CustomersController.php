@@ -72,7 +72,7 @@ class CustomersController extends Controller
                 'estatus' => 'activo',
                 'limite_credito' => 0,
                 'descuento_preferencial' => 0,
-                'notas' => $request->notas,
+                // notas son observaciones del personal: el cliente no las escribe.
             ]);
 
             // Auto-login: emitir token Sanctum tras el registro
@@ -241,7 +241,6 @@ class CustomersController extends Controller
             'codigo_postal' => 'nullable|string',
             'pais' => 'nullable|string',
             'rfc' => 'nullable|string',
-            'notas' => 'nullable|string',
             'password' => 'nullable|string|min:6',
         ]);
 
@@ -280,7 +279,6 @@ class CustomersController extends Controller
                 'codigo_postal',
                 'pais',
                 'rfc',
-                'notas',
             ];
 
             $changes = [];

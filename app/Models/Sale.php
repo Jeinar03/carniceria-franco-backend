@@ -56,6 +56,7 @@ class Sale extends Model
         'transferencia_validada_por',
         'estatus',
         'notas',
+        'notas_internas',
         'usuario_id',
         'estado_envio',
         'entregado_at',
@@ -97,6 +98,14 @@ class Sale extends Model
         'descuento' => 0,
         'impuestos' => 0,
         'transferencia_estado' => null,
+    ];
+
+    // No salen en las respuestas de la API (hallazgo S-14): ids de empleados y notas del personal.
+    protected $hidden = [
+        'usuario_id',
+        'entregado_por',
+        'transferencia_validada_por',
+        'notas_internas',
     ];
 
     protected $appends = [
