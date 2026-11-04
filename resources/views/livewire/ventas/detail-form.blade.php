@@ -139,7 +139,8 @@
                             </div>
                             <div class="card-body py-3 px-3 sales-info-grid">
                                 <div><small class="text-muted">Metodo pago</small><strong class="d-block">{{ ucfirst($sale->metodo_pago) }}</strong></div>
-                                <div><small class="text-muted">Notas</small><strong class="d-block">{{ $sale->notas ?? 'Sin notas' }}</strong></div>
+                                <div><small class="text-muted">Nota del cliente</small><strong class="d-block" style="white-space: pre-line;">{{ $sale->notas ?: 'Sin notas' }}</strong></div>
+                                <div><small class="text-muted">Notas internas</small><strong class="d-block" style="white-space: pre-line;">{{ $sale->notas_internas ?: 'Sin notas' }}</strong></div>
                                 @if($sale->tieneCancelacionSolicitada())
                                     <div class="alert alert-info mb-0" style="grid-column: 1 / -1;">
                                         <strong>El cliente pidió cancelar</strong> ({{ \App\Support\HoraLocal::formato($sale->cancelacion_solicitada_at) }})<br>

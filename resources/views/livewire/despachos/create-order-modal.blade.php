@@ -109,7 +109,7 @@
 
                                 <div class="form-group mb-0">
                                     <label>Notas</label>
-                                    <textarea wire:model="createNotas" class="form-control" rows="3" placeholder="Notas internas del pedido..."></textarea>
+                                    <textarea wire:model="createNotas" class="form-control" rows="3" placeholder="Notas internas del pedido (el cliente no las ve)..."></textarea>
                                 </div>
                             </div>
                         </div>

@@ -84,8 +84,8 @@
                     @endif
 
                     <div class="form-group mt-3">
-                        <label>Observaciones (solo para rechazo)</label>
-                        <textarea wire:model.defer="transferValidationNote" class="form-control" rows="3" placeholder="Motivo de rechazo o notas internas..."></textarea>
+                        <label>Motivo del rechazo (lo ve el cliente)</label>
+                        <textarea wire:model.defer="transferValidationNote" class="form-control" rows="3" placeholder="Ejemplo: el monto del comprobante no coincide con el pedido"></textarea>
                     </div>
                 @else
                     <div class="text-center text-muted">

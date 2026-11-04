@@ -74,7 +74,8 @@ class DespachosController extends Component
     public $editingSaleId = null;
     public $editCustomerId = '';
     public $editMetodoPago = 'efectivo';
-    public $editNotas = '';
+    public $editNotas = '';         // notas internas del personal (sales.notas_internas)
+    public $editNotaCliente = null; // nota que escribio el cliente (sales.notas), solo lectura
     public $editDescuento = 0;
     public $editFechaEntrega = '';
     public $editTipoEntrega = 'mandadito';
@@ -471,7 +472,7 @@ class DespachosController extends Component
                     'metodo_pago' => $this->createMetodoPago,
                     'estatus' => $this->createMetodoPago === 'transferencia' ? Sale::ESTATUS_PENDIENTE : Sale::ESTATUS_COMPLETADA,
                     'transferencia_estado' => $this->createMetodoPago === 'transferencia' ? 'pendiente' : null,
-                    'notas' => $this->createNotas,
+                    'notas_internas' => $this->createNotas, // pedido del panel: nota del personal
                     'estado_envio' => Sale::ENVIO_PENDIENTE,
                     'usuario_id' => auth()->id(),
                 ]);
@@ -612,7 +613,8 @@ class DespachosController extends Component
         $this->editingSaleId = $sale->id;
         $this->editCustomerId = $sale->customer_id ? (string) $sale->customer_id : '';
         $this->editMetodoPago = $sale->metodo_pago;
-        $this->editNotas = $sale->notas;
+        $this->editNotas = $sale->notas_internas;
+        $this->editNotaCliente = $sale->notas;
         $this->editDescuento = (float) $sale->descuento;
         $this->editFechaEntrega = $sale->fecha_entrega ? $sale->fecha_entrega->format('Y-m-d') : '';
         $this->editTipoEntrega = $sale->tipo_entrega ?: Sale::ENTREGA_MANDADITO;
@@ -652,6 +654,7 @@ class DespachosController extends Component
         $this->editCustomerId = '';
         $this->editMetodoPago = 'efectivo';
         $this->editNotas = '';
+        $this->editNotaCliente = null;
         $this->editDescuento = 0;
         $this->editFechaEntrega = '';
         $this->editTipoEntrega = Sale::ENTREGA_MANDADITO;
@@ -968,7 +971,7 @@ class DespachosController extends Component
                 $nuevoCustomerId = $this->editCustomerId ?: null;
                 $sale->customer_id = $nuevoCustomerId;
                 $sale->metodo_pago = $this->editMetodoPago;
-                $sale->notas = $this->editNotas;
+                $sale->notas_internas = $this->editNotas; // la nota del cliente (notas) no se edita aqui
                 $sale->fecha_entrega = $this->editFechaEntrega ?: null;
                 $sale->tipo_entrega = $this->editTipoEntrega;
                 $sale->direccion_entrega = $this->direccionParaGuardar($this->editTipoEntrega, $this->editDireccionEntrega);
@@ -1218,7 +1221,7 @@ class DespachosController extends Component
             return;
         }
 
-        $notaActual = trim((string) $sale->notas);
+        $notaActual = trim((string) $sale->notas_internas);
         $notaValidacion = 'Transferencia confirmada en mostrador por '
             . (auth()->user()->name ?? 'empleado')
             . ' — el cliente mostró el comprobante en persona, sin evidencia digital.';
@@ -1226,7 +1229,7 @@ class DespachosController extends Component
         $sale->transferencia_estado = 'aprobada';
         $sale->transferencia_validada_at = now();
         $sale->transferencia_validada_por = auth()->id();
-        $sale->notas = $notaActual !== '' ? $notaActual . PHP_EOL . $notaValidacion : $notaValidacion;
+        $sale->notas_internas = $notaActual !== '' ? $notaActual . PHP_EOL . $notaValidacion : $notaValidacion;
         $sale->estatus = Sale::ESTATUS_COMPLETADA;
         $sale->save();
 
