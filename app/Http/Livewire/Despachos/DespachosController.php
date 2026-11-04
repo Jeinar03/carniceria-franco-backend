@@ -510,14 +510,6 @@ class DespachosController extends Component
                     $sale->marcarEntregadaMostrador(auth()->id());
                 }
 
-                $customer = Customers::find($this->createCustomerId);
-                if ($customer) {
-                    $customer->total_compras = (float) ($customer->total_compras ?? 0) + $total;
-                    $customer->numero_compras = (int) ($customer->numero_compras ?? 0) + 1;
-                    $customer->fecha_ultima_compra = now();
-                    $customer->save();
-                }
-
                 return $sale;
             });
 
@@ -911,9 +903,6 @@ class DespachosController extends Component
                     throw new \RuntimeException('No se puede editar un pedido cancelado');
                 }
 
-                $totalAnterior = (float) $sale->total;
-                $clienteAnteriorId = $sale->customer_id;
-
                 $existingDetails = $sale->details->keyBy('product_id');
 
                 [$subtotal, $detalles] = $this->resolveEditOrderDetails($existingDetails);
@@ -1002,33 +991,6 @@ class DespachosController extends Component
                 }
 
                 $sale->save();
-
-                // 4) Estadísticas del cliente (si cambió el cliente o el total).
-                if ((string) $clienteAnteriorId !== (string) $nuevoCustomerId) {
-                    if ($clienteAnteriorId) {
-                        $clienteAnterior = Customers::find($clienteAnteriorId);
-                        if ($clienteAnterior) {
-                            $clienteAnterior->total_compras = max(0, (float) ($clienteAnterior->total_compras ?? 0) - $totalAnterior);
-                            $clienteAnterior->numero_compras = max(0, (int) ($clienteAnterior->numero_compras ?? 0) - 1);
-                            $clienteAnterior->save();
-                        }
-                    }
-                    if ($nuevoCustomerId) {
-                        $clienteNuevo = Customers::find($nuevoCustomerId);
-                        if ($clienteNuevo) {
-                            $clienteNuevo->total_compras = (float) ($clienteNuevo->total_compras ?? 0) + $total;
-                            $clienteNuevo->numero_compras = (int) ($clienteNuevo->numero_compras ?? 0) + 1;
-                            $clienteNuevo->fecha_ultima_compra = now();
-                            $clienteNuevo->save();
-                        }
-                    }
-                } elseif ($nuevoCustomerId) {
-                    $cliente = Customers::find($nuevoCustomerId);
-                    if ($cliente) {
-                        $cliente->total_compras = max(0, (float) ($cliente->total_compras ?? 0) - $totalAnterior + $total);
-                        $cliente->save();
-                    }
-                }
             });
 
             $this->emit('pedido-actualizado', 'Pedido actualizado correctamente');

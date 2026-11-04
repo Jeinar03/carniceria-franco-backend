@@ -199,6 +199,54 @@ class SpecialPriceTest extends TestCase
         $this->assertEquals(100.00, (float) $detalle->precio_unitario);
     }
 
+    /** Hallazgo M6: antes cobraba y descontaba 1000 veces el monto. */
+    public function test_venta_por_monto_de_producto_en_gramos_cobra_el_monto(): void
+    {
+        $cliente = $this->cliente('a@test.com');
+        $producto = Product::where('unidad_venta', 'kilogramo')->where('en_oferta', false)->firstOrFail();
+        $producto->update(['unidad_venta' => 'gramo']);
+        $this->precioEspecial($cliente, $producto, 100.00);
+
+        Sanctum::actingAs($cliente, ['cliente']);
+
+        $this->postJson('/api/v1/ventas', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
+            'metodo_pago' => 'transferencia',
+            'productos' => [['product_id' => $producto->id, 'cantidad' => 1, 'monto_pesos' => 50]],
+        ])->assertStatus(201);
+
+        $venta = DB::table('sales')->latest('id')->first();
+        $detalle = DB::table('sale_details')->where('sale_id', $venta->id)->first();
+
+        $this->assertEquals(0.5, (float) $detalle->cantidad);
+        $this->assertEquals(50.00, (float) $venta->subtotal);
+        $this->assertEquals(50.00, (float) $venta->total);
+        $this->assertEquals((float) $venta->subtotal, (float) $detalle->subtotal, 'El total de la venta debe cuadrar con su renglon');
+    }
+
+    public function test_monto_en_pesos_se_ignora_en_productos_por_pieza(): void
+    {
+        $cliente = $this->cliente('a@test.com');
+        $producto = $this->productoNormal();
+        $producto->update(['unidad_venta' => 'pieza']);
+        $this->precioEspecial($cliente, $producto, 30.00);
+
+        Sanctum::actingAs($cliente, ['cliente']);
+
+        // 2 piezas con un monto de $1: debe cobrar las 2 piezas, no $1
+        $this->postJson('/api/v1/ventas', [
+            'acepta_aviso_mandadito' => true, 'direccion_entrega' => 'Calle Prueba 1, Centro',
+            'metodo_pago' => 'transferencia',
+            'productos' => [['product_id' => $producto->id, 'cantidad' => 2, 'monto_pesos' => 1]],
+        ])->assertStatus(201);
+
+        $venta = DB::table('sales')->latest('id')->first();
+        $detalle = DB::table('sale_details')->where('sale_id', $venta->id)->first();
+
+        $this->assertEquals(60.00, (float) $venta->total);
+        $this->assertNull($detalle->monto_pesos);
+    }
+
     public function test_no_se_puede_duplicar_el_par_cliente_producto(): void
     {
         $cliente = $this->cliente('a@test.com');

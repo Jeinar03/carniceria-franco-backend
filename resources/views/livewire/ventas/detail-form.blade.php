@@ -20,7 +20,9 @@
                     @else
                         <span class="badge badge-info sales-badge-status">Entregada</span>
                     @endif
-                    @if($sale->estado_envio === 'Entregado')
+                    @if($sale->estaCancelada() && !in_array($sale->estado_envio, ['Enviado', 'Entregado'], true))
+                        <span class="badge badge-secondary sales-badge-status">Sin entrega (cancelada)</span>
+                    @elseif($sale->estado_envio === 'Entregado')
                         <span class="badge badge-success sales-badge-status">Entrega: Entregado</span>
                     @elseif($sale->estado_envio === 'Enviado')
                         <span class="badge badge-primary sales-badge-status">Entrega: Enviado</span>

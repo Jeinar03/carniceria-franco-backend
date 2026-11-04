@@ -316,6 +316,18 @@ class CancelacionPedidosTest extends TestCase
         });
     }
 
+    public function test_una_venta_cancelada_no_aparece_con_entrega_pendiente(): void
+    {
+        $cliente = $this->cliente();
+        $sale = $this->venta($cliente, ['estatus' => 'cancelada', 'cancelado_at' => now(), 'cancelado_por_tipo' => 'admin', 'estado_envio' => 'Pendiente'], true);
+
+        Livewire::actingAs($this->admin())->test(VentasController::class)
+            ->assertSee('Sin entrega')
+            ->call('viewDetail', $sale->id)
+            ->assertSee('Sin entrega (cancelada)')
+            ->assertDontSee('Entrega: Pendiente');
+    }
+
     public function test_el_detalle_muestra_el_motivo_que_escribio_el_cliente(): void
     {
         $cliente = $this->cliente();

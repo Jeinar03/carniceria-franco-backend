@@ -104,4 +104,19 @@ class Customers extends Authenticatable implements MustVerifyEmail
     {
         $this->notify(new VerifyCustomerEmail);
     }
+
+    /**
+     * Total gastado, compras realizadas y ultima compra: solo cuentan las ventas pagadas
+     * (completada o entregada). Una transferencia sin aprobar, un Mercado Pago sin pagar o una
+     * venta cancelada no suman.
+     */
+    public function recalcularEstadisticas(): void
+    {
+        $pagadas = Sale::where('customer_id', $this->id)->whereIn('estatus', ['completada', 'entregada']);
+
+        $this->total_compras = (float) (clone $pagadas)->sum('total');
+        $this->numero_compras = (clone $pagadas)->count();
+        $this->fecha_ultima_compra = (clone $pagadas)->max('fecha_venta');
+        $this->save();
+    }
 }

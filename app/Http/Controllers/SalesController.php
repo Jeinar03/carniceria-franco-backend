@@ -126,31 +126,35 @@ class SalesController extends Controller
 
                 // Manejar venta por monto en pesos
                 $cantidad = $item['cantidad'];
-                if (isset($item['monto_pesos']) && $item['monto_pesos'] > 0) {
-                    // Convertir monto en pesos a cantidad según la unidad de venta
-                    if (in_array($product->unidad_venta, ['kilogramo', 'gramo'])) {
-                        $cantidadKg = $item['monto_pesos'] / $precioFinal;
+                // La compra por monto solo aplica a productos por peso; en piezas,
+                // paquetes, etc. se ignora para no cobrar un monto que no cuadre
+                // con la cantidad.
+                $montoPesos = (isset($item['monto_pesos']) && $item['monto_pesos'] > 0
+                    && in_array($product->unidad_venta, ['kilogramo', 'gramo']))
+                    ? round((float) $item['monto_pesos'], 2)
+                    : null;
 
-                        if ($product->unidad_venta == 'kilogramo') {
-                            $cantidad = $cantidadKg; // Mantener en kilos
-                        } else {
-                            $cantidad = $cantidadKg * 1000; // Convertir a gramos
-                        }
-                    }
+                if ($montoPesos !== null) {
+                    // La cantidad queda en la misma unidad del precio (igual que en
+                    // Mercado Pago). Antes se multiplicaba por 1000 para "gramo" y se
+                    // cobraba y descontaba mil veces de mas (hallazgo M6).
+                    $cantidad = $montoPesos / $precioFinal;
                 }
 
                 if ($product->stock < $cantidad) {
                     throw new InsufficientStockException($product->nombre, (float) $product->stock, (float) $cantidad);
                 }
 
-                $itemSubtotal = $precioFinal * $cantidad;
+                // Si el cliente compro por monto, se cobra exactamente ese monto,
+                // igual que en Despachos, Mercado Pago y SaleDetail::calcularSubtotal.
+                $itemSubtotal = $montoPesos ?? ($precioFinal * $cantidad);
 
                 $subtotal += $itemSubtotal;
 
                 $detalles[] = [
                     'product' => $product,
                     'cantidad' => $cantidad,
-                    'monto_pesos' => $item['monto_pesos'] ?? null, // Guardar el monto original en pesos
+                    'monto_pesos' => $montoPesos, // Monto en pesos (solo productos por peso)
                     'precio_unitario' => $precioUnitario,
                     'precio_oferta' => $precioOferta,
                     'subtotal' => $itemSubtotal,
@@ -212,12 +216,7 @@ class SalesController extends Controller
                 $this->inventory->addSaleExit($product, $saleDetail);
             }
 
-            // Actualizar estadísticas del cliente
-            $customer = Customers::find($request->customer_id);
-            $customer->total_compras = ($customer->total_compras ?? 0) + $total;
-            $customer->numero_compras = ($customer->numero_compras ?? 0) + 1;
-            $customer->fecha_ultima_compra = now();
-            $customer->save();
+            // Las estadísticas del cliente las recalcula el modelo Sale al guardar la venta (solo cuentan las pagadas).
 
             DB::commit();
 

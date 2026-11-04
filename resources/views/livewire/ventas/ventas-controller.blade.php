@@ -163,7 +163,9 @@
                                         @endif
                                     </td>
                                     <td>
-                                        @if($venta->estado_envio === 'Entregado')
+                                        @if($venta->estaCancelada() && !in_array($venta->estado_envio, ['Enviado', 'Entregado'], true))
+                                            <span class="badge badge-secondary">Sin entrega</span>
+                                        @elseif($venta->estado_envio === 'Entregado')
                                             <span class="badge badge-success">Entregado</span>
                                         @elseif($venta->estado_envio === 'Enviado')
                                             <span class="badge badge-primary">Enviado</span>
