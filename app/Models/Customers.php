@@ -44,6 +44,7 @@ class Customers extends Authenticatable implements MustVerifyEmail
         'email_verified_at' => 'datetime',
         'fecha_registro' => 'datetime',
         'fecha_ultima_compra' => 'datetime',
+        'legales_aceptados_at' => 'datetime',
         'total_compras' => 'decimal:2',
         'numero_compras' => 'integer',
         'saldo_cuenta' => 'decimal:2',

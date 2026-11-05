@@ -32,16 +32,13 @@ class ApiClienteSeguridadTest extends TestCase
 
     private function cliente(string $correo, array $extra = []): Customers
     {
-        $cliente = new Customers(array_merge([
+        return $this->clienteConLegales(array_merge([
             'nombre' => 'C',
             'apellido' => 'X',
             'correo' => $correo,
             'password' => Hash::make('cliente123'),
             'estatus' => 'activo',
         ], $extra));
-        $cliente->save();
-
-        return $cliente;
     }
 
     private function producto(): Product
@@ -63,6 +60,7 @@ class ApiClienteSeguridadTest extends TestCase
     public function test_el_registro_publico_ignora_tipo_descuento_limite_y_estatus(): void
     {
         $this->postJson('/api/v1/clientes/registro', [
+            'acepta_legales' => true,
             'nombre' => 'Listo',
             'apellido' => 'Pillo',
             'correo' => 'listo@test.com',

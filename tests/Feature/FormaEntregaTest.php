@@ -39,7 +39,7 @@ class FormaEntregaTest extends TestCase
         Artisan::call('migrate', ['--force' => true, '--no-interaction' => true]);
         Artisan::call('db:seed', ['--force' => true, '--no-interaction' => true]);
 
-        $this->cliente = Customers::create([
+        $this->cliente = $this->clienteConLegales([
             'nombre' => 'Doña',
             'apellido' => 'Juanita',
             'correo' => 'juanita@test.com',

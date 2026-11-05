@@ -73,7 +73,7 @@ class CorreosClienteTest extends TestCase
         MercadoPagoCorreosControllerFake::$pagos = [];
         $this->app->bind(MercadoPagoController::class, fn () => new MercadoPagoCorreosControllerFake());
 
-        $this->cliente = Customers::create([
+        $this->cliente = $this->clienteConLegales([
             'nombre' => 'Doña',
             'apellido' => 'Juanita',
             'correo' => 'juanita@test.com',

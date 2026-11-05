@@ -74,7 +74,7 @@ class MercadoPagoFlowTest extends TestCase
 
     private function cliente(string $correo, array $extra = []): Customers
     {
-        return Customers::create(array_merge([
+        return $this->clienteConLegales(array_merge([
             'nombre' => 'C',
             'apellido' => 'X',
             'correo' => $correo,

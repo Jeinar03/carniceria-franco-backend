@@ -6,6 +6,7 @@ use App\Models\SeguimientoClientesImagenes;
 use Illuminate\Http\Request;
 use App\Models\Customers;
 use App\Rules\UbicacionGoogleMaps;
+use App\Support\Legales;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -30,7 +31,7 @@ class CustomersController extends Controller
             'estado' => 'nullable|string',
             'codigo_postal' => 'nullable|string',
             'rfc' => 'nullable|string',
-        ], [
+        ] + Legales::reglasRegistro(), [
             'nombre.required' => 'Ingresa tu nombre',
             'apellido.required' => 'Ingresa tu apellido',
             'correo.required' => 'Ingresa tu correo',
@@ -40,7 +41,7 @@ class CustomersController extends Controller
             'password.min' => 'La contraseña debe tener al menos 6 caracteres',
             'telefono.required' => 'Ingresa tu teléfono de 10 dígitos',
             'telefono.min' => 'El teléfono debe tener al menos 10 dígitos',
-        ]);
+        ] + Legales::mensajes());
 
         if ($validator->fails()) {
             return response()->json([
@@ -74,6 +75,9 @@ class CustomersController extends Controller
                 'descuento_preferencial' => 0,
                 // notas son observaciones del personal: el cliente no las escribe.
             ]);
+
+            // Fecha y version de lo aceptado: las pone el servidor, no el cliente.
+            Legales::registrarAceptacion($request, $usuario);
 
             // Auto-login: emitir token Sanctum tras el registro
             $token = $usuario->createToken('tienda', ['cliente'])->plainTextToken;
@@ -212,7 +216,10 @@ class CustomersController extends Controller
             'success' => true,
             'status' => 200,
             'message' => 'Información del cliente obtenida correctamente',
-            'data' => $request->user()
+            'data' => $request->user()->toArray() + [
+                // false = la tienda pide aceptar de nuevo los textos legales en la siguiente compra.
+                'legales_al_dia' => Legales::alDia($request->user()),
+            ],
         ], 200);
     }
     public function update(Request $request, $id)

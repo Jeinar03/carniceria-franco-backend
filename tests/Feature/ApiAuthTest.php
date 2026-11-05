@@ -81,6 +81,7 @@ class ApiAuthTest extends TestCase
     public function test_registro_devuelve_token_y_crea_la_cuenta(): void
     {
         $res = $this->postJson('/api/v1/clientes/registro', [
+            'acepta_legales' => true,
             'nombre' => 'Ana',
             'apellido' => 'Lopez',
             'correo' => 'ana@test.com',
