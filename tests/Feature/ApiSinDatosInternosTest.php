@@ -136,6 +136,7 @@ class ApiSinDatosInternosTest extends TestCase
     public function test_registro_ignora_las_notas(): void
     {
         $this->postJson('/api/v1/clientes/registro', [
+            'acepta_legales' => true,
             'nombre' => 'Ana',
             'apellido' => 'Lopez',
             'correo' => 'ana@test.com',

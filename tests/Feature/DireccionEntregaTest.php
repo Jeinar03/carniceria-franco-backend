@@ -31,7 +31,7 @@ class DireccionEntregaTest extends TestCase
         Artisan::call('migrate', ['--force' => true, '--no-interaction' => true]);
         Artisan::call('db:seed', ['--force' => true, '--no-interaction' => true]);
 
-        $this->cliente = Customers::create([
+        $this->cliente = $this->clienteConLegales([
             'nombre' => 'Doña',
             'apellido' => 'Juanita',
             'correo' => 'juanita@test.com',
@@ -207,6 +207,7 @@ class DireccionEntregaTest extends TestCase
     public function test_el_registro_exige_telefono(): void
     {
         $this->postJson('/api/v1/clientes/registro', [
+            'acepta_legales' => true,
             'nombre' => 'Ana',
             'apellido' => 'Lopez',
             'correo' => 'ana@test.com',
@@ -219,6 +220,7 @@ class DireccionEntregaTest extends TestCase
     public function test_el_registro_guarda_direccion_referencias_y_link(): void
     {
         $this->postJson('/api/v1/clientes/registro', [
+            'acepta_legales' => true,
             'nombre' => 'Ana',
             'apellido' => 'Lopez',
             'correo' => 'ana@test.com',
@@ -240,6 +242,7 @@ class DireccionEntregaTest extends TestCase
     public function test_el_registro_rechaza_un_link_que_no_es_de_maps(): void
     {
         $this->postJson('/api/v1/clientes/registro', [
+            'acepta_legales' => true,
             'nombre' => 'Ana',
             'apellido' => 'Lopez',
             'correo' => 'ana@test.com',

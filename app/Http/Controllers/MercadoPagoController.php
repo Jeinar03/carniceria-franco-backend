@@ -6,6 +6,7 @@ use App\Models\MercadoPagoSetting;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Support\DatosEntrega;
+use App\Support\Legales;
 use App\Models\SaleDetail;
 use App\Models\SiteConfig;
 use App\Services\InventoryService;
@@ -168,7 +169,8 @@ class MercadoPagoController extends Controller
             'metodo_pago'             => 'required|string',
             // El descuento no se recibe: lo calcula el servidor según el tipo de cliente.
             'notas'                   => 'nullable|string',
-        ] + DatosEntrega::reglas($request->input('tipo_entrega')), DatosEntrega::mensajes());
+        ] + DatosEntrega::reglas($request->input('tipo_entrega')) + Legales::reglasPedido($request->user()),
+            DatosEntrega::mensajes() + Legales::mensajes());
 
         if ($validator->fails()) {
             Log::error('❌ Validación fallida:', $validator->errors()->toArray());
@@ -337,8 +339,9 @@ class MercadoPagoController extends Controller
                 'notas'        => $request->notas,
                 'tipo_entrega' => $request->input('tipo_entrega') ?: Sale::ENTREGA_MANDADITO,
                 'estado_envio' => 'Pendiente',
-            ] + DatosEntrega::paraVenta($request));
+            ] + DatosEntrega::paraVenta($request) + Legales::paraVenta());
             DatosEntrega::guardarEnCliente($request, $request->user());
+            Legales::registrarAceptacion($request, $request->user());
 
             // Guardar items de la compra aunque el pago aun este pendiente.
             foreach ($detalles as $detalle) {

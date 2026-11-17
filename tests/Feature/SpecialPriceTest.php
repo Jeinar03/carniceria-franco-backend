@@ -36,7 +36,7 @@ class SpecialPriceTest extends TestCase
 
     private function cliente(string $correo): Customers
     {
-        return Customers::create([
+        return $this->clienteConLegales([
             'nombre' => 'C',
             'apellido' => 'X',
             'correo' => $correo,

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Sale;
 use App\Support\DatosEntrega;
+use App\Support\Legales;
 use App\Support\HoraLocal;
 use App\Models\SaleDetail;
 use App\Models\Product;
@@ -89,7 +90,8 @@ class SalesController extends Controller
             'productos.*.monto_pesos' => 'nullable|numeric|min:0', // Para venta por monto
             'notas' => 'nullable|string',
             'fecha_entrega' => 'nullable|date|after_or_equal:' . HoraLocal::hoy(), // Pedido para un día posterior (opcional)
-        ] + DatosEntrega::reglas($request->input('tipo_entrega')), DatosEntrega::mensajes());
+        ] + DatosEntrega::reglas($request->input('tipo_entrega')) + Legales::reglasPedido($request->user()),
+            DatosEntrega::mensajes() + Legales::mensajes());
 
         if ($validator->fails()) {
             return response()->json([
@@ -184,10 +186,11 @@ class SalesController extends Controller
                 'notas' => $request->notas,
                 'estado_envio' => 'Pendiente', // Estado inicial para seguimiento
                 'transferencia_estado' => $request->metodo_pago === 'transferencia' ? 'pendiente' : null,
-            ] + DatosEntrega::paraVenta($request);
+            ] + DatosEntrega::paraVenta($request) + Legales::paraVenta();
 
             $sale = Sale::create($saleData);
             DatosEntrega::guardarEnCliente($request, $request->user());
+            Legales::registrarAceptacion($request, $request->user());
 
             // Orden estable para evitar bloqueos cruzados entre ventas concurrentes.
             usort($detalles, function ($left, $right) {

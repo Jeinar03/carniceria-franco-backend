@@ -41,6 +41,7 @@ class Sale extends Model
         'referencias_entrega',
         'ubicacion_url',
         'aviso_mandadito_aceptado_at',
+        'legales_version',
         'subtotal',
         'descuento',
         'impuestos',

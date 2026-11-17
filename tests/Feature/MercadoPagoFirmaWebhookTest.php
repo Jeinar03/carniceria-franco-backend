@@ -101,7 +101,7 @@ class MercadoPagoFirmaWebhookTest extends TestCase
     /** Venta pendiente de Mercado Pago, creada como la tienda, con su pago aprobado listo. */
     private function ventaConPago(int $paymentId): Sale
     {
-        $cliente = Customers::create([
+        $cliente = $this->clienteConLegales([
             'nombre' => 'C',
             'apellido' => 'X',
             'correo' => "firma{$paymentId}@test.com",
